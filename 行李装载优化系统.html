@@ -1,0 +1,3268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 单文件版：由 tools/build.mjs 生成，可直接双击打开 -->
+<title>行李装载优化系统 · 客机腹舱自动化配载</title>
+<style>
+/* ============================================================
+   行李装载优化系统 · 界面样式
+   ============================================================ */
+:root {
+  --bg: #070c15;
+  --bg-2: #0b1220;
+  --panel: #0f1829;
+  --panel-2: #131e33;
+  --line: #1e2c44;
+  --line-soft: #18243a;
+  --text: #e8effa;
+  --muted: #8ba3c4;
+  --dim: #64789a;
+  --accent: #38bdf8;
+  --accent-2: #22d3ee;
+  --amber: #fbbf24;
+  --green: #34d399;
+  --red: #f87171;
+  --violet: #a78bfa;
+  --radius: 14px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 78% -10%, rgba(56, 189, 248, .10), transparent 60%),
+    radial-gradient(900px 500px at 10% 110%, rgba(167, 139, 250, .08), transparent 60%),
+    var(--bg);
+  color: var(--text);
+  font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, p { margin: 0; }
+button, input, select { font-family: inherit; font-size: inherit; color: inherit; }
+::selection { background: rgba(56, 189, 248, .35); }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #23324b; border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: #2f4260; }
+
+/* ---------------- 顶栏 ---------------- */
+.topbar {
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, rgba(15, 24, 41, .9), rgba(7, 12, 21, .6));
+  backdrop-filter: blur(8px);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; }
+
+.logo {
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  border-radius: 12px;
+  color: var(--accent);
+  background: linear-gradient(145deg, rgba(56, 189, 248, .18), rgba(56, 189, 248, .04));
+  border: 1px solid rgba(56, 189, 248, .28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
+}
+
+.brand-text h1 { font-size: 17px; font-weight: 600; letter-spacing: .5px; }
+.brand-text p { font-size: 11.5px; color: var(--dim); margin-top: 3px; letter-spacing: .3px; }
+
+.top-actions { display: flex; align-items: center; gap: 10px; }
+
+.pill {
+  font-size: 11px;
+  letter-spacing: .6px;
+  color: var(--accent);
+  border: 1px solid rgba(56, 189, 248, .3);
+  background: rgba(56, 189, 248, .08);
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+
+/* ---------------- 通用按钮 ---------------- */
+.btn {
+  border: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+  transition: .16s ease;
+  white-space: nowrap;
+}
+.btn:hover { border-color: #33507a; background: #17253d; }
+.btn:active { transform: translateY(1px); }
+.btn.ghost { background: transparent; color: var(--muted); }
+.btn.ghost:hover { color: var(--text); border-color: #33507a; background: rgba(255, 255, 255, .03); }
+.btn.primary {
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
+  border-color: #38bdf8;
+  color: #031018;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(14, 165, 233, .25);
+}
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.sm { padding: 7px 11px; font-size: 12px; border-radius: 9px; }
+.btn.xs { padding: 5px 9px; font-size: 11.5px; border-radius: 8px; }
+.btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+.icon-btn {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: rgba(19, 30, 51, .8);
+  color: var(--muted);
+  cursor: pointer;
+  transition: .15s;
+  font-size: 12px;
+}
+.icon-btn:hover { color: var(--accent); border-color: rgba(56, 189, 248, .5); }
+
+/* ---------------- 布局 ---------------- */
+.layout {
+  display: grid;
+  grid-template-columns: 374px minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 16px 16px;
+  height: calc(100vh - 62px);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
+}
+
+.stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto 226px;
+  gap: 12px;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ---------------- 面板 ---------------- */
+.panel {
+  background: linear-gradient(180deg, var(--panel), rgba(11, 18, 32, .92));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  padding: 13px 14px 14px;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .02) inset;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.panel-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: .4px;
+}
+
+.panel-head h2 i {
+  font-style: normal;
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  font-size: 10.5px;
+  color: var(--accent);
+  background: rgba(56, 189, 248, .12);
+  border: 1px solid rgba(56, 189, 248, .22);
+}
+
+.hint { font-size: 11px; color: var(--dim); font-family: ui-monospace, Menlo, monospace; }
+
+/* ---------------- 表单 ---------------- */
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field > span { font-size: 11px; color: var(--dim); letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+input[type="number"], input[type="text"], select {
+  width: 100%;
+  background: #0a1424;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 8px 9px;
+  color: var(--text);
+  outline: none;
+  transition: .15s;
+  font-size: 12.5px;
+  min-width: 0;
+}
+input:hover, select:hover { border-color: #2b4064; }
+input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, .12); }
+input[type="number"] { font-family: ui-monospace, Menlo, Consolas, monospace; }
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M1 1l4 4 4-4' fill='none' stroke='%238ba3c4' stroke-width='1.4'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  padding-right: 24px;
+  cursor: pointer;
+}
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+
+.bag-form { border: 1px dashed var(--line); border-radius: 11px; padding: 10px; background: rgba(9, 16, 28, .5); }
+
+.row-actions { display: flex; gap: 7px; margin-top: 10px; }
+.row-actions .btn.primary { flex: 1; }
+
+.slider-field { display: block; margin-bottom: 12px; }
+.slider-field > span { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); margin-bottom: 7px; }
+.slider-field b { color: var(--accent); font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
+
+input[type="range"] {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(56, 189, 248, .65), rgba(56, 189, 248, .15));
+  outline: none;
+  cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 15px; height: 15px;
+  border-radius: 50%;
+  background: #e8f6ff;
+  border: 3px solid var(--accent);
+  box-shadow: 0 0 10px rgba(56, 189, 248, .6);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 13px; border-radius: 50%;
+  background: #e8f6ff; border: 3px solid var(--accent); cursor: pointer;
+}
+
+.dice { margin-top: 8px; align-self: end; height: 34px; }
+
+.tip { font-size: 11px; color: var(--dim); line-height: 1.6; margin-top: 8px; }
+
+/* 货舱截面预览 */
+.profile-preview {
+  margin-top: 10px;
+  height: 80px;
+  border-radius: 10px;
+  border: 1px solid var(--line-soft);
+  background:
+    linear-gradient(rgba(56, 189, 248, .035), rgba(56, 189, 248, .035)),
+    repeating-linear-gradient(0deg, transparent, transparent 15px, rgba(90, 140, 190, .07) 15px, rgba(90, 140, 190, .07) 16px),
+    repeating-linear-gradient(90deg, transparent, transparent 15px, rgba(90, 140, 190, .07) 15px, rgba(90, 140, 190, .07) 16px);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.profile-preview svg { width: 100%; height: 100%; }
+
+/* 行李列表 */
+.bag-list { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+
+.bag-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: 9px;
+  border: 1px solid var(--line-soft);
+  background: rgba(19, 30, 51, .5);
+  transition: .15s;
+}
+.bag-item:hover { border-color: #2c4062; background: rgba(25, 39, 64, .65); }
+
+.dot { width: 8px; height: 8px; border-radius: 3px; flex: none; box-shadow: 0 0 8px currentColor; }
+
+.bag-main { flex: 1; min-width: 0; }
+.bag-title { font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+.bag-title .qty {
+  font-size: 10.5px;
+  color: var(--amber);
+  background: rgba(251, 191, 36, .12);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: ui-monospace, monospace;
+}
+.bag-sub {
+  font-size: 10.5px;
+  color: var(--dim);
+  margin-top: 3px;
+  font-family: ui-monospace, Menlo, monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bag-item .icon-btn { width: 24px; height: 24px; border: none; background: transparent; font-size: 11px; flex: none; }
+.bag-item .icon-btn:hover { color: var(--red); background: rgba(248, 113, 113, .1); }
+
+.bag-empty { text-align: center; color: var(--dim); font-size: 11.5px; padding: 16px 0; }
+
+/* 运行按钮与进度 */
+.btn.run { width: 100%; padding: 13px; font-size: 14px; letter-spacing: 1px; border-radius: 12px; }
+.progress {
+  position: relative;
+  height: 30px;
+  border-radius: 9px;
+  background: #0a1424;
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.progress .bar {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(56, 189, 248, .25), rgba(56, 189, 248, .45));
+  transition: width .12s linear;
+}
+.progress span { position: relative; font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+.progress.done span { color: var(--green); }
+
+/* ---------------- 视口 ---------------- */
+.viewport {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  box-shadow: var(--shadow);
+  background: #080d16;
+  min-height: 0;
+}
+#view { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; }
+
+.vp-toolbar {
+  position: absolute;
+  top: 12px; left: 12px; right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+.vp-toolbar > * { pointer-events: auto; }
+
+.seg {
+  display: flex;
+  background: rgba(10, 18, 32, .82);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 2px;
+  backdrop-filter: blur(6px);
+}
+.chip {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: .15s;
+}
+.chip:hover { color: var(--text); }
+.chip.active { background: rgba(56, 189, 248, .18); color: var(--accent); }
+
+.chip-select {
+  width: auto;
+  background-color: rgba(10, 18, 32, .82);
+  border: 1px solid var(--line);
+  font-size: 11.5px;
+  padding: 6px 24px 6px 10px;
+  border-radius: 9px;
+  color: var(--muted);
+  backdrop-filter: blur(6px);
+}
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  background: rgba(10, 18, 32, .82);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 5px 10px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+.switch input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+
+.vp-legend {
+  position: absolute;
+  right: 12px;
+  top: 58px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+.lg-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+  background: rgba(10, 18, 32, .75);
+  border: 1px solid var(--line-soft);
+  border-radius: 7px;
+  padding: 3px 8px;
+  font-family: ui-monospace, monospace;
+}
+.lg-swatch { width: 8px; height: 8px; border-radius: 2px; }
+.lg-gradient {
+  width: 120px; height: 6px; border-radius: 3px;
+  background: linear-gradient(90deg, #38bdf8, #34d399, #fbbf24);
+}
+
+.run-dock {
+  position: sticky;
+  bottom: -2px;
+  padding: 10px 0 2px;
+  margin-top: auto;
+  background: linear-gradient(180deg, rgba(7, 12, 21, 0), var(--bg) 42%);
+  z-index: 5;
+}
+
+.vp-info {
+  position: absolute;
+  left: 12px;
+  bottom: 62px;
+  font-size: 10.5px;
+  color: var(--muted);
+  font-family: ui-monospace, Menlo, monospace;
+  background: rgba(9, 16, 28, .78);
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  padding: 4px 9px;
+  pointer-events: none;
+  letter-spacing: .2px;
+}
+
+.vp-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--dim);
+  text-align: center;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+.vp-empty.hidden { opacity: 0; }
+.vp-empty .empty-icon { font-size: 44px; color: rgba(56, 189, 248, .25); line-height: 1; }
+.vp-empty p { font-size: 14px; color: var(--muted); }
+.vp-empty span { font-size: 11px; }
+
+.vp-sequence {
+  position: absolute;
+  left: 12px; right: 12px; bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 11px;
+  background: rgba(9, 16, 28, .84);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  transition: opacity .2s;
+}
+.vp-sequence .icon-btn { width: 28px; height: 28px; color: var(--accent); border-color: rgba(56, 189, 248, .35); }
+.vp-sequence input[type="range"] { flex: 1; }
+.seq-label { font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; min-width: 58px; text-align: right; }
+
+.tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(8, 14, 24, .95);
+  border: 1px solid rgba(56, 189, 248, .35);
+  border-radius: 9px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.65;
+  color: var(--text);
+  opacity: 0;
+  transform: translate(-50%, -110%);
+  transition: opacity .12s;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  white-space: nowrap;
+}
+.tooltip.show { opacity: 1; }
+.tooltip b { color: var(--accent); font-weight: 600; }
+.tooltip .tt-sub { color: var(--dim); font-family: ui-monospace, monospace; font-size: 10.5px; }
+
+/* ---------------- 指标卡 ---------------- */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.metric {
+  background: linear-gradient(180deg, var(--panel), rgba(11, 18, 32, .9));
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  padding: 10px 12px;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+.metric::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  opacity: .55;
+}
+.metric.good::after { background: var(--green); }
+.metric.warn::after { background: var(--amber); }
+.metric.bad::after { background: var(--red); }
+
+.metric .k { font-size: 10.5px; color: var(--dim); letter-spacing: .3px; white-space: nowrap; }
+.metric .v {
+  font-size: 21px;
+  font-weight: 600;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  margin-top: 3px;
+  letter-spacing: -.5px;
+  white-space: nowrap;
+}
+.metric .v small { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+.metric .s { font-size: 10px; color: var(--dim); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, monospace; }
+
+/* ---------------- 结果表 ---------------- */
+.results {
+  background: linear-gradient(180deg, var(--panel), rgba(11, 18, 32, .92));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.tab {
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: .15s;
+}
+.tab:hover { color: var(--text); background: rgba(255, 255, 255, .03); }
+.tab.active { color: var(--accent); background: rgba(56, 189, 248, .1); }
+.badge {
+  font-size: 10px;
+  background: rgba(139, 163, 196, .16);
+  color: var(--muted);
+  border-radius: 5px;
+  padding: 1px 5px;
+  font-family: ui-monospace, monospace;
+}
+.tab.active .badge { background: rgba(56, 189, 248, .2); color: var(--accent); }
+.spacer { flex: 1; }
+.verify { font-size: 11px; color: var(--green); margin-right: 6px; font-family: ui-monospace, monospace; }
+.verify.bad { color: var(--red); }
+
+.table-wrap { overflow: auto; flex: 1; min-height: 0; }
+
+table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+thead th {
+  position: sticky;
+  top: 0;
+  background: #101a2c;
+  color: var(--dim);
+  font-weight: 500;
+  text-align: left;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+  z-index: 2;
+  font-size: 10.5px;
+  letter-spacing: .3px;
+}
+tbody td {
+  padding: 6px 10px;
+  border-bottom: 1px solid rgba(30, 44, 68, .45);
+  color: var(--muted);
+  white-space: nowrap;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+tbody tr { cursor: pointer; transition: .12s; }
+tbody tr:hover td { background: rgba(56, 189, 248, .06); color: var(--text); }
+tbody tr.selected td { background: rgba(56, 189, 248, .12); color: var(--text); }
+td.num { color: var(--text); }
+td.name { font-family: inherit; color: var(--text); }
+td .tag {
+  font-family: inherit;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: rgba(139, 163, 196, .14);
+  color: var(--muted);
+}
+td .tag.warn { background: rgba(251, 191, 36, .13); color: var(--amber); }
+
+.table-empty { padding: 26px; text-align: center; color: var(--dim); font-size: 12px; }
+
+/* ---------------- 弹窗 ---------------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 14, .7);
+  backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.modal.open { display: flex; }
+.modal-card {
+  width: min(760px, 100%);
+  max-height: 84vh;
+  background: #0d1626;
+  border: 1px solid #22314b;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  overflow: hidden;
+}
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.modal-head h2 { font-size: 14.5px; font-weight: 600; }
+.modal-body { padding: 16px 20px 22px; overflow-y: auto; font-size: 12.5px; line-height: 1.85; color: var(--muted); }
+.modal-body h3 { color: var(--text); font-size: 12.5px; margin: 16px 0 6px; letter-spacing: .4px; }
+.modal-body h3:first-child { margin-top: 0; }
+.modal-body b { color: var(--accent); font-weight: 600; }
+.modal-body code {
+  font-family: ui-monospace, Menlo, monospace;
+  background: rgba(56, 189, 248, .1);
+  color: #a5e4ff;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11.5px;
+}
+.modal-body ol, .modal-body ul { padding-left: 18px; margin: 6px 0; }
+.modal-body li { margin: 3px 0; }
+.modal-body .formula {
+  background: #091120;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 8px 0;
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 11.5px;
+  color: #b9d6f5;
+  overflow-x: auto;
+}
+
+/* ---------------- 提示条 ---------------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 26px;
+  transform: translate(-50%, 20px);
+  background: #12203a;
+  border: 1px solid #2a4062;
+  color: var(--text);
+  padding: 9px 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  opacity: 0;
+  pointer-events: none;
+  transition: .22s;
+  z-index: 200;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .45);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.toast.err { border-color: rgba(248, 113, 113, .5); color: #fecaca; }
+
+/* ---------------- 响应式 ---------------- */
+@media (max-height: 860px) {
+  .topbar { height: 54px; padding: 0 16px; }
+  .brand-text p { display: none; }
+  .logo { width: 36px; height: 36px; }
+  .layout { height: calc(100vh - 54px); padding: 10px 14px 12px; gap: 10px; }
+  .stage { grid-template-rows: minmax(0, 1fr) auto 190px; gap: 10px; }
+  .panel { padding: 10px 12px 11px; }
+  .profile-preview { height: 72px; margin-top: 8px; }
+  .bag-list { max-height: 168px; }
+  .bag-form { padding: 8px; }
+  .metric { padding: 8px 10px; }
+  .metric .v { font-size: 18px; }
+  .btn.run { padding: 10px; font-size: 13px; }
+  .modal-body { font-size: 12px; }
+}
+
+@media (max-height: 800px) {
+  .profile-preview { display: none; }
+  .grid-4 { gap: 6px; margin-top: 6px; }
+  .bag-list { max-height: 132px; }
+  .panel-head { margin-bottom: 8px; }
+}
+
+@media (max-width: 1240px) {
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 1000px) {
+  body { overflow: auto; }
+  .layout { grid-template-columns: 1fr; height: auto; }
+  .sidebar { overflow: visible; }
+  .stage { grid-template-rows: 460px auto 300px; }
+  .topbar { height: auto; padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
+  .layout { height: auto; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo" aria-hidden="true">
+      <svg viewBox="0 0 32 32" width="30" height="30">
+        <rect x="5" y="9" width="22" height="17" rx="3.5" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 9V7.5A2.5 2.5 0 0 1 14.5 5h3A2.5 2.5 0 0 1 20 7.5V9" fill="none" stroke="currentColor" stroke-width="2"/>
+        <path d="M5 16h22" stroke="currentColor" stroke-width="1.6" opacity=".55"/>
+      </svg>
+    </div>
+    <div class="brand-text">
+      <h1>行李装载优化系统</h1>
+      <p>Baggage Loading Optimizer · 三维装箱 · 配载平衡</p>
+    </div>
+  </div>
+  <div class="top-actions">
+    <span class="pill" id="enginePill">EP · Multi-Start</span>
+    <button class="btn ghost" id="btnHelp">算法说明</button>
+    <button class="btn ghost" id="btnImport">导入方案</button>
+    <button class="btn ghost" id="btnExport">导出方案</button>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ================= 左侧控制区 ================= -->
+  <aside class="sidebar">
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2><i>1</i>货舱 / 集装箱</h2>
+        <span class="hint" id="containerVol"></span>
+      </header>
+
+      <label class="field">
+        <span>机型 / 集装箱预设</span>
+        <select id="preset"></select>
+      </label>
+
+      <div class="grid-3">
+        <label class="field"><span>宽 W (mm)</span><input id="cw" type="number" min="100" step="10" value="1534"></label>
+        <label class="field"><span>深 D (mm)</span><input id="cd" type="number" min="100" step="10" value="1562"></label>
+        <label class="field"><span>高 H (mm)</span><input id="ch" type="number" min="100" step="10" value="1626"></label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field"><span>载重上限 (kg)</span><input id="cmax" type="number" min="10" step="10" value="1500"></label>
+        <label class="field"><span>截面形状</span>
+          <select id="profileMode">
+            <option value="taper">LD3 斜角截面</option>
+            <option value="rect">矩形截面</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="profile-preview">
+        <svg id="profileSvg" viewBox="0 0 260 120" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </section>
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2><i>2</i>行李清单</h2>
+        <span class="hint" id="bagSummary">—</span>
+      </header>
+
+      <form class="bag-form" id="bagForm" autocomplete="off">
+        <label class="field">
+          <span>名称（可选）</span>
+          <input id="bname" type="text" placeholder="如：24寸行李箱" maxlength="16">
+        </label>
+        <div class="grid-4">
+          <label class="field"><span>长 mm</span><input id="bl" type="number" min="50" step="10" value="600"></label>
+          <label class="field"><span>宽 mm</span><input id="bw" type="number" min="50" step="10" value="450"></label>
+          <label class="field"><span>高 mm</span><input id="bh" type="number" min="20" step="10" value="280"></label>
+          <label class="field"><span>重量 kg</span><input id="bkg" type="number" min="0.1" step="0.5" value="20"></label>
+        </div>
+        <div class="grid-4">
+          <label class="field"><span>数量</span><input id="bqty" type="number" min="1" max="99" step="1" value="1"></label>
+          <label class="field"><span>摆放方式</span>
+            <select id="brot">
+              <option value="upright">仅水平旋转</option>
+              <option value="free">任意翻转</option>
+              <option value="none">固定朝向</option>
+            </select>
+          </label>
+          <label class="field"><span>可堆叠</span>
+            <select id="bstack">
+              <option value="3">可压 3 层</option>
+              <option value="2">可压 2 层</option>
+              <option value="1">仅 1 层</option>
+              <option value="0">不可压 / 易碎</option>
+            </select>
+          </label>
+          <label class="field"><span>目的地</span><input id="bdest" type="text" value="PEK" maxlength="6"></label>
+        </div>
+        <div class="row-actions">
+          <button type="submit" class="btn primary sm">＋ 添加行李</button>
+          <button type="button" class="btn ghost sm" id="btnSample">载入示例</button>
+          <button type="button" class="btn ghost sm" id="btnClear">清空</button>
+        </div>
+      </form>
+
+      <div class="bag-list" id="bagList"></div>
+    </section>
+
+    <section class="panel">
+      <header class="panel-head">
+        <h2><i>3</i>优化参数</h2>
+      </header>
+      <label class="slider-field">
+        <span>搜索强度 <b id="trialsVal">120</b> 次</span>
+        <input id="trials" type="range" min="1" max="300" step="1" value="120">
+      </label>
+      <label class="slider-field">
+        <span>最小支撑率 <b id="supportVal">82%</b></span>
+        <input id="support" type="range" min="50" max="100" step="1" value="82">
+      </label>
+      <div class="grid-2">
+        <label class="field"><span>随机种子</span><input id="seed" type="number" step="1" value="20250921"></label>
+        <button type="button" class="btn ghost dice" id="btnDice">🎲 换一个</button>
+      </div>
+      <p class="tip">相同种子与参数得到完全相同的结果，便于复现与答辩演示。</p>
+    </section>
+
+    <div class="run-dock">
+      <button class="btn primary run" id="btnRun">开始优化计算</button>
+      <div class="progress" id="progress">
+        <div class="bar" id="progressBar"></div>
+        <span id="progressText">就绪</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= 右侧展示区 ================= -->
+  <section class="stage">
+
+    <div class="viewport" id="viewport">
+      <canvas id="view"></canvas>
+
+      <div class="vp-toolbar">
+        <div class="seg">
+          <button class="chip active" data-view="iso">等轴</button>
+          <button class="chip" data-view="top">俯视</button>
+          <button class="chip" data-view="front">正视</button>
+          <button class="chip" data-view="side">侧视</button>
+        </div>
+        <select id="colorMode" class="chip-select" title="着色方式">
+          <option value="dest">按目的地着色</option>
+          <option value="weight">按重量着色</option>
+          <option value="order">按装载顺序着色</option>
+          <option value="single">单色</option>
+        </select>
+        <label class="switch"><input type="checkbox" id="ghost"><span>显示未装载</span></label>
+      </div>
+
+      <div class="vp-legend" id="legend"></div>
+      <div class="vp-info" id="vpInfo"></div>
+
+      <div class="vp-empty" id="vpEmpty">
+        <div class="empty-icon">◫</div>
+        <p>添加行李后点击「开始优化计算」</p>
+        <span>鼠标拖动旋转 · 滚轮缩放 · 双击复位</span>
+      </div>
+
+      <div class="vp-sequence">
+        <button class="icon-btn" id="btnPlay" title="播放装载序列（空格）">▶</button>
+        <input id="seqSlider" type="range" min="0" max="0" value="0">
+        <span class="seq-label" id="seqLabel">0 / 0</span>
+      </div>
+
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+
+    <div class="metrics" id="metrics"></div>
+
+    <div class="results">
+      <div class="tabs">
+        <button class="tab active" data-tab="placed">装载明细 <span class="badge" id="placedBadge">0</span></button>
+        <button class="tab" data-tab="unplaced">未装载 <span class="badge" id="unplacedBadge">0</span></button>
+        <div class="spacer"></div>
+        <span class="verify" id="verifyBadge"></span>
+        <button class="btn ghost xs" id="btnCsv">导出装载单 CSV</button>
+        <button class="btn ghost xs" id="btnJson">导出方案 JSON</button>
+      </div>
+      <div class="table-wrap" id="tableWrap"></div>
+    </div>
+
+  </section>
+</main>
+
+<!-- 算法说明 -->
+<div class="modal" id="helpModal" aria-hidden="true">
+  <div class="modal-card">
+    <header class="modal-head">
+      <h2>算法与配载模型说明</h2>
+      <button class="icon-btn" id="btnCloseHelp">✕</button>
+    </header>
+    <div class="modal-body" id="helpBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input type="file" id="fileInput" accept=".json,application/json" hidden>
+
+<script>
+/*
+ * 行李装载优化 · 核心求解器
+ * ------------------------------------------------------------
+ * 问题：给定货舱（可为 LD3 这类带斜角的非矩形截面）与若干行李的长/宽/高/重量，
+ *      求一个可行的三维排布，使装入体积最大，并满足：
+ *        1) 不越界、不重叠；
+ *        2) 支撑率约束（行李不能悬空，底部须有足够接触面积）；
+ *        3) 堆叠层数约束（易碎 / 不可压行李上方不能再放东西）；
+ *        4) 总重量上限；
+ *        5) 重心尽量靠近货舱中心（航空配载要求）。
+ *
+ * 算法：极值点（Extreme Point, EP）+ 多起点随机化最佳适配（multi-start best-fit）
+ *      + 顺序启发式 + 评分函数随机扰动，多次独立求解取最优。
+ *
+ * 坐标系（单位 mm）：
+ *      x → 货舱宽度   y → 货舱纵深（机身方向）   z → 高度
+ *      所有坐标均为行李最小角点（min-corner）。
+ *
+ * 无 DOM 依赖，可在浏览器与 Node 中同时使用。
+ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.BagPacker = factory();
+})(typeof globalThis !== 'undefined' ? globalThis : this, function () {
+  'use strict';
+
+  var EPS = 0.01; // mm 容差
+  var now = function () {
+    return typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
+  };
+
+  /* ============================================================
+   * 1. 随机数（可复现：同一 seed 得到同一方案）
+   * ============================================================ */
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ============================================================
+   * 2. 几何工具（截面为 x-z 平面上的多边形，沿 y 拉伸成棱柱）
+   * ============================================================ */
+  function polyArea(poly) {
+    var a = 0, n = poly.length;
+    for (var i = 0; i < n; i++) {
+      var p = poly[i], q = poly[(i + 1) % n];
+      a += p[0] * q[1] - q[0] * p[1];
+    }
+    return Math.abs(a) / 2;
+  }
+
+  function polyCentroid(poly) {
+    var a = 0, cx = 0, cy = 0, n = poly.length;
+    for (var i = 0; i < n; i++) {
+      var p = poly[i], q = poly[(i + 1) % n];
+      var cross = p[0] * q[1] - q[0] * p[1];
+      a += cross;
+      cx += (p[0] + q[0]) * cross;
+      cy += (p[1] + q[1]) * cross;
+    }
+    if (Math.abs(a) < 1e-9) return [poly[0][0], poly[0][1]];
+    return [cx / (3 * a), cy / (3 * a)];
+  }
+
+  function isConvex(poly) {
+    var n = poly.length, sign = 0;
+    for (var i = 0; i < n; i++) {
+      var a = poly[i], b = poly[(i + 1) % n], c = poly[(i + 2) % n];
+      var cr = (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0]);
+      if (Math.abs(cr) < 1e-9) continue;
+      var s = cr > 0 ? 1 : -1;
+      if (sign === 0) sign = s;
+      else if (s !== sign) return false;
+    }
+    return true;
+  }
+
+  function pointInPoly(poly, x, y) {
+    // 边界视为"在内"
+    var n = poly.length, inside = false;
+    for (var i = 0, j = n - 1; i < n; j = i++) {
+      var xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      // 点到线段距离
+      var dx = xj - xi, dy = yj - yi;
+      var len2 = dx * dx + dy * dy;
+      var t = len2 > 0 ? ((x - xi) * dx + (y - yi) * dy) / len2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      var px = xi + t * dx, py = yi + t * dy;
+      if ((x - px) * (x - px) + (y - py) * (y - py) <= EPS * EPS) return true;
+
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  function rectInPoly(poly, convex, x0, z0, x1, z1) {
+    if (
+      !pointInPoly(poly, x0, z0) || !pointInPoly(poly, x1, z0) ||
+      !pointInPoly(poly, x0, z1) || !pointInPoly(poly, x1, z1)
+    ) return false;
+    if (convex) return true;
+    // 非凸截面：补充边界中点和边相交检测
+    if (!pointInPoly(poly, (x0 + x1) / 2, z0) || !pointInPoly(poly, (x0 + x1) / 2, z1) ||
+        !pointInPoly(poly, x0, (z0 + z1) / 2) || !pointInPoly(poly, x1, (z0 + z1) / 2)) return false;
+    var rect = [[x0, z0], [x1, z0], [x1, z1], [x0, z1]];
+    for (var i = 0; i < 4; i++) {
+      var a = rect[i], b = rect[(i + 1) % 4];
+      for (var j = 0; j < poly.length; j++) {
+        var c = poly[j], d = poly[(j + 1) % poly.length];
+        if (segCross(a, b, c, d)) return false;
+      }
+    }
+    return true;
+  }
+
+  function segCross(a, b, c, d) {
+    function orient(p, q, r) {
+      var v = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+      if (Math.abs(v) < 1e-9) return 0;
+      return v > 0 ? 1 : -1;
+    }
+    var o1 = orient(a, b, c), o2 = orient(a, b, d), o3 = orient(c, d, a), o4 = orient(c, d, b);
+    return o1 * o2 < 0 && o3 * o4 < 0;
+  }
+
+  function containerVolume(container) {
+    return polyArea(container.profile) * container.depth;
+  }
+
+  /* ============================================================
+   * 3. 货舱/集装箱预设
+   * ============================================================ */
+  function rectProfile(w, h) {
+    return [[0, 0], [w, 0], [w, h], [0, h]];
+  }
+
+  // LD3：截面为右侧上部 45° 切角的矩形（贴合机身圆弧）
+  function ld3Profile(w, h) {
+    var topW = w * 0.672;      // 顶部可用宽度
+    var chamferZ = h * 0.318;  // 切角起点距顶部
+    return [[0, 0], [w, 0], [w, h - chamferZ], [topW, h], [0, h]];
+  }
+
+  var PRESETS = {
+    ld3: {
+      name: 'LD3（AKE）宽体机',
+      width: 1534, depth: 1562, height: 1626, maxWeight: 1500,
+      profile: ld3Profile(1534, 1626),
+      note: '简化模型：截面按 LD3 轮廓取 45° 斜角，尺寸可微调'
+    },
+    ld345: {
+      name: 'LD3-45W（A320）',
+      width: 1534, depth: 1562, height: 1626, maxWeight: 1400,
+      profile: ld3Profile(1534, 1626),
+      note: 'A320 系列下货舱标准集装箱（简化模型）'
+    },
+    bulk: {
+      name: '散货舱（矩形）',
+      width: 2400, depth: 2200, height: 1500, maxWeight: 1800,
+      profile: rectProfile(2400, 1500),
+      note: '宽体机散货舱近似矩形，可按机型修改'
+    },
+    custom: {
+      name: '自定义货舱',
+      width: 2000, depth: 2000, height: 1600, maxWeight: 2000,
+      profile: rectProfile(2000, 1600),
+      note: '手动输入内部可用尺寸'
+    }
+  };
+
+  /* ============================================================
+   * 4. 行李 → 可放置方向
+   * ============================================================ */
+  function orientationsFor(l, w, h, mode) {
+    var list;
+    if (mode === 'free') {
+      list = [[l, w, h], [l, h, w], [w, l, h], [w, h, l], [h, l, w], [h, w, l]];
+    } else if (mode === 'upright') {
+      // 保持"高"竖直，只允许在水平面内旋转 90°
+      list = [[l, w, h], [w, l, h]];
+    } else {
+      list = [[l, w, h]]; // none
+    }
+    var seen = {}, out = [];
+    for (var i = 0; i < list.length; i++) {
+      var d = list[i];
+      var k = d[0].toFixed(2) + 'x' + d[1].toFixed(2) + 'x' + d[2].toFixed(2);
+      if (seen[k]) continue;
+      seen[k] = 1;
+      out.push(d);
+    }
+    return out;
+  }
+
+  /**
+   * 把"行李组"展开为单件行李（带唯一编号）
+   * group: {id,name,l,w,h,weight,qty,rotate,stack,dest}
+   */
+  function expandGroups(groups) {
+    var items = [], seq = 0;
+    for (var g = 0; g < groups.length; g++) {
+      var grp = groups[g];
+      var mode = grp.rotate || grp.rotateMode || 'upright';
+      var orients = orientationsFor(+grp.l, +grp.w, +grp.h, mode);
+      for (var i = 0; i < (+grp.qty || 1); i++) {
+        seq++;
+        items.push({
+          id: (grp.id || 'B') + '-' + (i + 1),
+          groupId: grp.id || 'B',
+          name: grp.name || '行李',
+          dims: [+grp.l, +grp.w, +grp.h],
+          weight: +grp.weight || 0,
+          stack: grp.stack == null ? 3 : +grp.stack,
+          dest: grp.dest || '默认',
+          color: grp.color || null,
+          rotate: mode,
+          orients: orients,
+          volume: (+grp.l) * (+grp.w) * (+grp.h),
+          seq: seq
+        });
+      }
+    }
+    return items;
+  }
+
+  /* ============================================================
+   * 5. 单次装载（一次贪心构造）
+   * ============================================================ */
+  function zKey(z) { return Math.round(z * 10); }
+
+  function packOnce(items, container, cfg, rng) {
+    var W = container.width, D = container.depth, H = container.height;
+    var poly = container.profile, convex = isConvex(poly);
+    var maxWeight = container.maxWeight;
+
+    var placements = [];
+    var eps = [[0, 0, 0]];
+    var epSet = { '0,0,0': 1 };
+    var grid = new Map();
+    var topIndex = new Map();
+    var seen = [];
+    var qstamp = 0;
+    var weight = 0, volume = 0;
+
+    var cell = Math.max(250, Math.min(600, Math.round(Math.max(W, D, H) / 4)));
+    var maxDimOf = function (item) {
+      var m = item.dims[0];
+      if (item.dims[1] > m) m = item.dims[1];
+      if (item.dims[2] > m) m = item.dims[2];
+      return m;
+    };
+
+    function cellKey(ix, iy, iz) { return ix + iy * 1024 + iz * 1048576; }
+
+    function neighbors(x, y, z, pad) {
+      var x0 = Math.max(0, Math.floor((x - pad) / cell));
+      var y0 = Math.max(0, Math.floor((y - pad) / cell));
+      var z0 = Math.max(0, Math.floor((z - pad) / cell));
+      var x1 = Math.floor((x + pad) / cell);
+      var y1 = Math.floor((y + pad) / cell);
+      var z1 = Math.floor((z + pad) / cell);
+      qstamp++;
+      var out = [];
+      for (var ix = x0; ix <= x1; ix++) {
+        for (var iy = y0; iy <= y1; iy++) {
+          for (var iz = z0; iz <= z1; iz++) {
+            var arr = grid.get(cellKey(ix, iy, iz));
+            if (!arr) continue;
+            for (var k = 0; k < arr.length; k++) {
+              var idx = arr[k];
+              if (seen[idx] === qstamp) continue;
+              seen[idx] = qstamp;
+              out.push(placements[idx]);
+            }
+          }
+        }
+      }
+      return out;
+    }
+
+    function insideAnyBox(x, y, z) {
+      var nb = neighbors(x, y, z, 0);
+      for (var i = 0; i < nb.length; i++) {
+        var b = nb[i];
+        if (x > b.x + EPS && x < b.x + b.dx - EPS &&
+            y > b.y + EPS && y < b.y + b.dy - EPS &&
+            z > b.z + EPS && z < b.z + b.dz - EPS) return true;
+      }
+      return false;
+    }
+
+    function addEp(x, y, z) {
+      if (x < -EPS || y < -EPS || z < -EPS) return;
+      if (x > W - EPS || y > D - EPS || z > H - EPS) return;
+      if (!pointInPoly(poly, x, z)) return;
+      var k = Math.round(x * 10) + ',' + Math.round(y * 10) + ',' + Math.round(z * 10);
+      if (epSet[k]) return;
+      if (insideAnyBox(x, y, z)) return;
+      epSet[k] = 1;
+      eps.push([x, y, z]);
+    }
+
+    // ---- 单次放置评估 ----
+    function evaluate(item, x, y, z, d, nb, w) {
+      var dx = d[0], dy = d[1], dz = d[2];
+
+      // (a) 重叠检测
+      for (var i = 0; i < nb.length; i++) {
+        var b = nb[i];
+        if (x < b.x + b.dx - EPS && b.x < x + dx - EPS &&
+            y < b.y + b.dy - EPS && b.y < y + dy - EPS &&
+            z < b.z + b.dz - EPS && b.z < z + dz - EPS) return null;
+      }
+
+      // (b) 支撑检测
+      var supportArea = 0, sups = null;
+      if (z <= EPS) {
+        supportArea = dx * dy;
+      } else {
+        var tops = topIndex.get(zKey(z));
+        if (!tops) return null;
+        for (var t = 0; t < tops.length; t++) {
+          var s = tops[t];
+          if (s.stackAbove >= s.stackLimit) continue;
+          var ox = Math.min(x + dx, s.x + s.dx) - Math.max(x, s.x);
+          var oy = Math.min(y + dy, s.y + s.dy) - Math.max(y, s.y);
+          if (ox > EPS && oy > EPS) {
+            supportArea += ox * oy;
+            if (!sups) sups = [];
+            sups.push(s);
+          }
+        }
+      }
+      if (supportArea + EPS < cfg.supportRatio * dx * dy) return null;
+
+      // (c) 接触面积（用于评分：贴壁、贴合越紧越紧凑）
+      var contact = supportArea;
+      if (x <= EPS) contact += dy * dz;
+      if (x + dx >= W - EPS) contact += dy * dz;
+      if (y <= EPS) contact += dx * dz;
+      if (y + dy >= D - EPS) contact += dx * dz;
+      for (var j = 0; j < nb.length; j++) {
+        var c = nb[j];
+        var oy2 = Math.min(y + dy, c.y + c.dy) - Math.max(y, c.y);
+        var oz2 = Math.min(z + dz, c.z + c.dz) - Math.max(z, c.z);
+        var ox2 = Math.min(x + dx, c.x + c.dx) - Math.max(x, c.x);
+        if (oy2 > EPS && oz2 > EPS) {
+          if (Math.abs(x - (c.x + c.dx)) <= EPS || Math.abs(c.x - (x + dx)) <= EPS) contact += oy2 * oz2;
+        }
+        if (ox2 > EPS && oz2 > EPS) {
+          if (Math.abs(y - (c.y + c.dy)) <= EPS || Math.abs(c.y - (y + dy)) <= EPS) contact += ox2 * oz2;
+        }
+      }
+      var surf = 2 * (dx * dy + dx * dz + dy * dz);
+      var contactRatio = surf > 0 ? contact / surf : 0;
+
+      var score =
+        w.wZ * ((z + dz) / H) +
+        w.wY * ((y + dy) / D) +
+        w.wX * (x / W) -
+        w.wC * contactRatio +
+        w.jitter * (rng() - 0.5);
+
+      return {
+        item: item, x: x, y: y, z: z, dx: dx, dy: dy, dz: dz,
+        sups: sups, supportRatio: supportArea / (dx * dy), score: score
+      };
+    }
+
+    // ---- 主循环 ----
+    var unplaced = [];
+    for (var n = 0; n < items.length; n++) {
+      var item = items[n];
+
+      if (weight + item.weight > maxWeight + EPS) {
+        unplaced.push({ item: item, reason: '超出载重上限' });
+        continue;
+      }
+
+      var maxDim = maxDimOf(item);
+      var best = null;
+      var epList = eps;
+      for (var e = 0; e < epList.length; e++) {
+        var ex = epList[e][0], ey = epList[e][1], ez = epList[e][2];
+        var nb = neighbors(ex, ey, ez, maxDim);
+        for (var o = 0; o < item.orients.length; o++) {
+          var d = item.orients[o];
+          if (ex + d[0] > W + EPS || ey + d[1] > D + EPS || ez + d[2] > H + EPS) continue;
+          if (!rectInPoly(poly, convex, ex, ez, ex + d[0], ez + d[2])) continue;
+          var cand = evaluate(item, ex, ey, ez, d, nb, cfg.weights);
+          if (cand && (!best || cand.score < best.score)) best = cand;
+        }
+      }
+
+      if (!best) {
+        unplaced.push({ item: item, reason: '无满足支撑/堆叠条件的空间' });
+        continue;
+      }
+
+      // 落位
+      var p = {
+        itemId: item.id, groupId: item.groupId, name: item.name,
+        x: best.x, y: best.y, z: best.z,
+        dx: best.dx, dy: best.dy, dz: best.dz,
+        weight: item.weight, dest: item.dest, color: item.color,
+        stackLimit: item.stack, stackAbove: 0,
+        supportRatio: best.supportRatio, step: 0
+      };
+      placements.push(p);
+      seen.push(0);
+
+      if (best.sups) {
+        for (var s = 0; s < best.sups.length; s++) best.sups[s].stackAbove++;
+      }
+
+      weight += item.weight;
+      volume += p.dx * p.dy * p.dz;
+
+      // 入网格
+      var ix0 = Math.floor(p.x / cell), ix1 = Math.floor((p.x + p.dx) / cell);
+      var iy0 = Math.floor(p.y / cell), iy1 = Math.floor((p.y + p.dy) / cell);
+      var iz0 = Math.floor(p.z / cell), iz1 = Math.floor((p.z + p.dz) / cell);
+      for (var ax = ix0; ax <= ix1; ax++) {
+        for (var ay = iy0; ay <= iy1; ay++) {
+          for (var az = iz0; az <= iz1; az++) {
+            var kk = cellKey(ax, ay, az);
+            var bucket = grid.get(kk);
+            if (!bucket) { bucket = []; grid.set(kk, bucket); }
+            bucket.push(placements.length - 1);
+          }
+        }
+      }
+      // 顶面索引（支撑检测）
+      var tk = zKey(p.z + p.dz);
+      var ta = topIndex.get(tk);
+      if (!ta) { ta = []; topIndex.set(tk, ta); }
+      ta.push(p);
+
+      // 生成新极值点（基础 3 个；fullEps 时补充对角点，填补凹槽）
+      addEp(p.x + p.dx, p.y, p.z);
+      addEp(p.x, p.y + p.dy, p.z);
+      addEp(p.x, p.y, p.z + p.dz);
+      if (cfg.fullEps) {
+        addEp(p.x + p.dx, p.y + p.dy, p.z);
+        addEp(p.x + p.dx, p.y, p.z + p.dz);
+        addEp(p.x, p.y + p.dy, p.z + p.dz);
+        addEp(p.x + p.dx, p.y + p.dy, p.z + p.dz);
+      }
+    }
+
+    return {
+      placements: placements,
+      unplaced: unplaced,
+      weight: weight,
+      volume: volume,
+      epsUsed: eps.length
+    };
+  }
+
+  /* ============================================================
+   * 6. 装载顺序（模拟人工/机器人装舱：由下至上、由内向外）
+   * ============================================================ */
+  function assignSequence(placements) {
+    var arr = placements.slice().sort(function (a, b) {
+      if (Math.abs(a.z - b.z) > 1) return a.z - b.z;
+      if (Math.abs(a.y - b.y) > 1) return b.y - a.y;
+      return a.x - b.x;
+    });
+    for (var i = 0; i < arr.length; i++) arr[i].step = i + 1;
+    return arr;
+  }
+
+  /* ============================================================
+   * 7. 指标：利用率、重心、稳定性
+   * ============================================================ */
+  function computeMetrics(placements, items, container) {
+    var capV = containerVolume(container);
+    var vol = 0, wgt = 0, mx = 0, my = 0, mz = 0;
+    var supportSum = 0, maxTop = 0;
+    for (var i = 0; i < placements.length; i++) {
+      var p = placements[i];
+      var v = p.dx * p.dy * p.dz;
+      vol += v;
+      wgt += p.weight;
+      mx += p.weight * (p.x + p.dx / 2);
+      my += p.weight * (p.y + p.dy / 2);
+      mz += p.weight * (p.z + p.dz / 2);
+      supportSum += p.supportRatio;
+      if (p.z + p.dz > maxTop) maxTop = p.z + p.dz;
+    }
+    var cen = polyCentroid(container.profile);
+    var tx = cen[0], ty = container.depth / 2;
+    var cgx = wgt > 0 ? mx / wgt : 0;
+    var cgy = wgt > 0 ? my / wgt : 0;
+    var cgz = wgt > 0 ? mz / wgt : 0;
+
+    var totalVolume = 0, totalWeight = 0, totalCount = items.length;
+    for (var k = 0; k < items.length; k++) {
+      totalVolume += items[k].volume;
+      totalWeight += items[k].weight;
+    }
+
+    return {
+      volumeUtil: capV > 0 ? vol / capV : 0,
+      weightUtil: container.maxWeight > 0 ? wgt / container.maxWeight : 0,
+      placedCount: placements.length,
+      totalCount: totalCount,
+      placedVolume: vol,
+      containerVolume: capV,
+      placedWeight: wgt,
+      totalWeight: totalWeight,
+      cg: { x: cgx, y: cgy, z: cgz },
+      cgTarget: { x: tx, y: ty },
+      cgOffsetX: cgx - tx,
+      cgOffsetY: cgy - ty,
+      cgOffsetRatioX: (cgx - tx) / (container.width / 2),
+      cgOffsetRatioY: (cgy - ty) / (container.depth / 2),
+      avgSupport: placements.length ? supportSum / placements.length : 0,
+      maxTop: maxTop,
+      heightUtil: maxTop / container.height,
+      balanceScore: 1 - Math.min(1, Math.max(
+        Math.abs(cgx - tx) / (container.width / 2),
+        Math.abs(cgy - ty) / (container.depth / 2)
+      ))
+    };
+  }
+
+  /* ============================================================
+   * 8. 构造顺序启发式
+   * ============================================================ */
+  var ORDER_MODES = ['volume', 'maxdim', 'height', 'footprint', 'weight', 'random', 'compact'];
+
+  function makeOrder(items, mode, rng) {
+    var arr = items.slice();
+    var noise = 0.22;
+    function jit(v) { return v * (1 + noise * (rng() - 0.5)); }
+
+    if (mode === 'fragile-last' || mode === 'compact') {
+      // 不可压/易碎件最后装（放上层），其余按体积降序
+      arr.sort(function (a, b) {
+        var af = a.stack <= 0 ? 0 : 1, bf = b.stack <= 0 ? 0 : 1;
+        if (af !== bf) return af - bf;
+        return jit(b.volume) - jit(a.volume);
+      });
+      return arr;
+    }
+    if (mode === 'dest') {
+      arr.sort(function (a, b) {
+        if (a.dest !== b.dest) return a.dest < b.dest ? -1 : 1;
+        return jit(b.volume) - jit(a.volume);
+      });
+      return arr;
+    }
+
+    var key;
+    switch (mode) {
+      case 'maxdim': key = function (it) { return Math.max(it.dims[0], it.dims[1], it.dims[2]); }; break;
+      case 'height': key = function (it) { return it.dims[2]; }; break;
+      case 'footprint': key = function (it) { return it.dims[0] * it.dims[1]; }; break;
+      case 'weight': key = function (it) { return it.weight; }; break;
+      case 'random': key = function () { return rng(); }; break;
+      default: key = function (it) { return it.volume; };
+    }
+    arr.sort(function (a, b) { return jit(key(b)) - jit(key(a)); });
+    return arr;
+  }
+
+  /* ============================================================
+   * 9. 多起点优化器（可分片执行，便于 UI 显示进度）
+   * ============================================================ */
+  function normalizeConfig(opts) {
+    opts = opts || {};
+    var trials = opts.trials != null ? Math.max(1, opts.trials | 0) : 48;
+    var weights = {
+      wZ: opts.wZ != null ? +opts.wZ : 1.3,
+      wY: opts.wY != null ? +opts.wY : 0.45,
+      wX: opts.wX != null ? +opts.wX : 0.15,
+      wC: opts.wC != null ? +opts.wC : 0.7,
+      jitter: 0
+    };
+    return {
+      trials: trials,
+      timeLimitMs: opts.timeLimitMs != null ? +opts.timeLimitMs : 2500,
+      seed: opts.seed != null ? +opts.seed : 20250921,
+      supportRatio: opts.supportRatio != null ? Math.min(1, Math.max(0, +opts.supportRatio)) : 0.82,
+      weights: weights,
+      fullEps: opts.fullEps !== false,
+      randomize: opts.randomize !== false,
+      orderMode: opts.orderMode || 'auto'
+    };
+  }
+
+  function Optimizer(items, container, opts) {
+    this.items = items;
+    this.container = container;
+    this.cfg = normalizeConfig(opts);
+    this.rng = mulberry32(this.cfg.seed);
+    this.trial = 0;
+    this.best = null;
+    this.t0 = now();
+    this.elapsed = 0;
+    this.stopped = false;
+    this.bestTrial = 0;
+  }
+
+  Optimizer.prototype.runTrial = function () {
+    var cfg = this.cfg;
+    var t = this.trial;
+    var orderMode, weights;
+    if (t === 0 || !cfg.randomize) {
+      orderMode = cfg.orderMode === 'auto' ? 'volume' : cfg.orderMode;
+      weights = { wZ: cfg.weights.wZ, wY: cfg.weights.wY, wX: cfg.weights.wX, wC: cfg.weights.wC, jitter: 0 };
+    } else {
+      orderMode = cfg.orderMode !== 'auto' ? cfg.orderMode
+        : ORDER_MODES[(this.rng() * ORDER_MODES.length) | 0];
+      weights = {
+        wZ: 0.7 + this.rng() * 1.3,
+        wY: 0.15 + this.rng() * 1.0,
+        wX: 0.02 + this.rng() * 0.5,
+        wC: 0.15 + this.rng() * 1.2,
+        jitter: 0.02
+      };
+    }
+    var order = makeOrder(this.items, orderMode, this.rng);
+    var res = packOnce(order, this.container, { supportRatio: cfg.supportRatio, weights: weights, fullEps: cfg.fullEps }, this.rng);
+
+    res.metrics = computeMetrics(res.placements, this.items, this.container);
+    res.orderMode = orderMode;
+    res.weights = weights;
+
+    if (!this.best || better(res, this.best)) {
+      this.best = res;
+      this.bestTrial = t + 1;
+    }
+    this.trial++;
+  };
+
+  function better(a, b) {
+    if (Math.abs(a.volume - b.volume) > 1) return a.volume > b.volume;
+    if (a.placements.length !== b.placements.length) return a.placements.length > b.placements.length;
+    return a.metrics.balanceScore > b.metrics.balanceScore;
+  }
+
+  /**
+   * 分片执行：最多运行 ms 毫秒，返回是否已完成
+   */
+  Optimizer.prototype.step = function (ms) {
+    var until = now() + (ms || 20);
+    while (!this.stopped && this.trial < this.cfg.trials && now() < until) {
+      if (now() - this.t0 > this.cfg.timeLimitMs && this.best) break;
+      this.runTrial();
+    }
+    this.elapsed = now() - this.t0;
+    if (this.trial >= this.cfg.trials || (this.elapsed > this.cfg.timeLimitMs && this.best)) this.stopped = true;
+    return this.stopped;
+  };
+
+  Optimizer.prototype.result = function () {
+    var best = this.best;
+    if (!best) return null;
+    var seq = assignSequence(best.placements);
+    var all = computeMetrics(seq, this.items, this.container);
+    var unplaced = best.unplaced.map(function (u) {
+      return { itemId: u.item.id, name: u.item.name, dims: u.item.dims, weight: u.item.weight, reason: u.reason };
+    });
+    // 未装入但尺寸本身放不下的，单独说明
+    for (var i = 0; i < unplaced.length; i++) {
+      if (unplaced[i].reason.indexOf('空间') >= 0) {
+        var it = unplaced[i];
+        var fitsAny = false;
+        var modes = ['free', 'upright'];
+        for (var m = 0; m < modes.length; m++) {
+          var os = orientationsFor(it.dims[0], it.dims[1], it.dims[2], modes[m]);
+          for (var o = 0; o < os.length; o++) {
+            var d = os[o];
+            if (d[0] <= this.container.width && d[1] <= this.container.depth && d[2] <= this.container.height) fitsAny = true;
+          }
+        }
+        if (!fitsAny) unplaced[i].reason = '单件尺寸超出货舱';
+      }
+    }
+    return {
+      placements: seq,
+      unplaced: unplaced,
+      metrics: all,
+      trials: this.trial,
+      bestTrial: this.bestTrial,
+      elapsed: this.elapsed,
+      config: this.cfg
+    };
+  };
+
+  /* ============================================================
+   * 10. 方案校验（独立于求解器，用于自检/答辩演示）
+   * ============================================================ */
+  function validatePlan(placements, container, supportRatio) {
+    var sr = supportRatio == null ? 0 : supportRatio;
+    var errors = [];
+    var poly = container.profile, convex = isConvex(poly);
+    var i, j;
+    for (i = 0; i < placements.length; i++) {
+      var p = placements[i];
+      if (p.x < -EPS || p.y < -EPS || p.z < -EPS ||
+          p.x + p.dx > container.width + EPS ||
+          p.y + p.dy > container.depth + EPS ||
+          p.z + p.dz > container.height + EPS) {
+        errors.push(p.itemId + ' 越界');
+      }
+      if (!rectInPoly(poly, convex, p.x, p.z, p.x + p.dx, p.z + p.dz)) {
+        errors.push(p.itemId + ' 超出货舱截面轮廓');
+      }
+      // 支撑
+      var area = 0;
+      if (p.z <= EPS) area = p.dx * p.dy;
+      for (j = 0; j < placements.length; j++) {
+        if (i === j) continue;
+        var s = placements[j];
+        if (Math.abs(s.z + s.dz - p.z) > 0.5) continue;
+        var ox = Math.min(p.x + p.dx, s.x + s.dx) - Math.max(p.x, s.x);
+        var oy = Math.min(p.y + p.dy, s.y + s.dy) - Math.max(p.y, s.y);
+        if (ox > EPS && oy > EPS) area += ox * oy;
+      }
+      if (p.z > EPS && area + 1 < sr * p.dx * p.dy) {
+        errors.push(p.itemId + ' 支撑不足 (' + (area / (p.dx * p.dy) * 100).toFixed(1) + '%)');
+      }
+    }
+    for (i = 0; i < placements.length; i++) {
+      for (j = i + 1; j < placements.length; j++) {
+        var a = placements[i], b = placements[j];
+        if (a.x < b.x + b.dx - 0.5 && b.x < a.x + a.dx - 0.5 &&
+            a.y < b.y + b.dy - 0.5 && b.y < a.y + a.dy - 0.5 &&
+            a.z < b.z + b.dz - 0.5 && b.z < a.z + a.dz - 0.5) {
+          errors.push(a.itemId + ' 与 ' + b.itemId + ' 重叠');
+        }
+      }
+    }
+    var w = placements.reduce(function (s, p) { return s + p.weight; }, 0);
+    if (w > container.maxWeight + 1) errors.push('总重量超出上限');
+    return { ok: errors.length === 0, errors: errors };
+  }
+
+  return {
+    PRESETS: PRESETS,
+    rectProfile: rectProfile,
+    ld3Profile: ld3Profile,
+    expandGroups: expandGroups,
+    orientationsFor: orientationsFor,
+    containerVolume: containerVolume,
+    polyArea: polyArea,
+    polyCentroid: polyCentroid,
+    computeMetrics: computeMetrics,
+    validatePlan: validatePlan,
+    Optimizer: Optimizer,
+    assignSequence: assignSequence
+  };
+});
+
+</script>
+<script>
+/*
+ * 三维可视化渲染器（Canvas 2D，无第三方依赖）
+ * 透视投影 + 画家算法逐面排序，支持旋转、缩放、拾取与装载序列播放。
+ */
+(function (root) {
+  'use strict';
+
+  var FACE_DEFS = [
+    { n: [0, 0, 1], idx: [4, 5, 6, 7], shade: 1.16 },   // 顶面
+    { n: [0, 0, -1], idx: [0, 1, 2, 3], shade: 0.55 },  // 底面
+    { n: [0, -1, 0], idx: [0, 4, 5, 1], shade: 1.0 },   // 前面
+    { n: [0, 1, 0], idx: [2, 6, 7, 3], shade: 0.78 },   // 后面
+    { n: [-1, 0, 0], idx: [0, 3, 7, 4], shade: 0.88 },  // 左面
+    { n: [1, 0, 0], idx: [1, 5, 6, 2], shade: 0.92 }    // 右面
+  ];
+
+  var PALETTE = [
+    '#38bdf8', '#fbbf24', '#a78bfa', '#34d399', '#fb7185',
+    '#fb923c', '#2dd4bf', '#818cf8', '#a3e635', '#f472b6'
+  ];
+
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+  function hexToRgb(hex) {
+    var h = hex.replace('#', '');
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    var n = parseInt(h, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+
+  function shadeColor(rgb, f) {
+    return 'rgb(' + Math.round(clamp(rgb[0] * f, 0, 255)) + ',' +
+      Math.round(clamp(rgb[1] * f, 0, 255)) + ',' +
+      Math.round(clamp(rgb[2] * f, 0, 255)) + ')';
+  }
+
+  function hashStr(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  function mixRgb(a, b, t) {
+    return [
+      a[0] + (b[0] - a[0]) * t,
+      a[1] + (b[1] - a[1]) * t,
+      a[2] + (b[2] - a[2]) * t
+    ];
+  }
+
+  function Renderer(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.az = -0.62;
+    this.el = 0.34;
+    this.zoom = 1;
+    this.container = null;
+    this.placements = [];
+    this.visibleCount = 1e9;
+    this.colorMode = 'dest';
+    this.selected = null;
+    this.hoverId = null;
+    this.showGhost = false;
+    this.cx = 0; this.cy = 0; this.focal = 1;
+    this.cam = [0, 0, 0]; this.right = [1, 0, 0]; this.up = [0, 1, 0]; this.forward = [0, 0, 1];
+    this.autoFit = true;
+    this.radius = 1000;
+    this.target = [0, 0, 0];
+    this.colorMap = null;
+    this.fitScale = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.needsFit = true;
+    this._raf = 0;
+    this._bind();
+  }
+
+  Renderer.prototype._bind = function () {
+    var self = this;
+    var drag = null;
+    this.canvas.addEventListener('pointerdown', function (e) {
+      drag = { x: e.clientX, y: e.clientY, az: self.az, el: self.el };
+      self.canvas.setPointerCapture(e.pointerId);
+      self.canvas.style.cursor = 'grabbing';
+    });
+    this.canvas.addEventListener('pointermove', function (e) {
+      if (drag) {
+        self.az = drag.az + (e.clientX - drag.x) * 0.008;
+        self.el = clamp(drag.el + (e.clientY - drag.y) * 0.006, -0.15, 1.35);
+        self.invalidate();
+      } else {
+        self._pointer = { x: e.clientX, y: e.clientY };
+        self._hoverPending = true;
+      }
+    });
+    var end = function (e) {
+      if (!drag) return;
+      drag = null;
+      self.canvas.style.cursor = 'grab';
+      try { self.canvas.releasePointerCapture(e.pointerId); } catch (err) { }
+    };
+    this.canvas.addEventListener('pointerup', end);
+    this.canvas.addEventListener('pointercancel', end);
+    this.canvas.addEventListener('pointerleave', function () {
+      self.hoverId = null;
+      self._pointer = null;
+      self.invalidate();
+      if (self.onHover) self.onHover(null);
+    });
+    this.canvas.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      self.zoom = clamp(self.zoom * (e.deltaY > 0 ? 0.92 : 1.08), 0.45, 4.5);
+      self.invalidate();
+    }, { passive: false });
+    this.canvas.addEventListener('dblclick', function () { self.resetView(); });
+  };
+
+  Renderer.prototype.setData = function (container, placements) {
+    this.container = container;
+    this.placements = placements || [];
+    this.visibleCount = 1e9;
+    this.selected = null;
+    this.hoverId = null;
+    this.resetView(true);
+  };
+
+  Renderer.prototype.resetView = function () {
+    var c = this.container;
+    this.az = -0.62;
+    this.el = 0.34;
+    this.zoom = 1;
+    this.panX = 0;
+    this.panY = 0;
+    this.fitScale = 1;
+    this.needsFit = true;
+    if (!c) return;
+    this.target = [c.width / 2, c.depth / 2, c.height * 0.46];
+    this.radius = 0.5 * Math.sqrt(c.width * c.width + c.depth * c.depth + c.height * c.height);
+    this.invalidate();
+  };
+
+  Renderer.prototype.viewPreset = function (name) {
+    if (name === 'top') { this.az = 0; this.el = 1.32; }
+    else if (name === 'front') { this.az = 0; this.el = 0.06; }
+    else if (name === 'side') { this.az = -Math.PI / 2; this.el = 0.08; }
+    else { this.az = -0.62; this.el = 0.34; }
+    this.zoom = 1;
+    this.needsFit = true;
+    this.invalidate();
+  };
+
+  Renderer.prototype.invalidate = function () {
+    var self = this;
+    if (this._raf) return;
+    this._raf = requestAnimationFrame(function () {
+      self._raf = 0;
+      self.draw();
+    });
+  };
+
+  Renderer.prototype.resize = function () {
+    var rect = this.canvas.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = Math.max(320, Math.round(rect.width));
+    var h = Math.max(240, Math.round(rect.height));
+    this.canvas.width = Math.round(w * dpr);
+    this.canvas.height = Math.round(h * dpr);
+    this.dpr = dpr;
+    this.w = w; this.h = h;
+    this.needsFit = true;
+    this.invalidate();
+  };
+
+  Renderer.prototype._updateCamera = function () {
+    var c = this.container;
+    if (!c) return;
+    var az = this.az, el = this.el;
+    var dist = this.radius * 3.2 * this.fitScale / this.zoom;
+    var dir = [
+      Math.cos(el) * Math.sin(az),
+      -Math.cos(el) * Math.cos(az),
+      Math.sin(el)
+    ];
+    this.cam = [
+      this.target[0] + dir[0] * dist,
+      this.target[1] + dir[1] * dist,
+      this.target[2] + dir[2] * dist
+    ];
+    var f = [-dir[0], -dir[1], -dir[2]];
+    this.forward = f;
+    // right = normalize(cross(forward, worldUp))，worldUp = (0,0,1)
+    var r = [f[1], -f[0], 0];
+    var rl = Math.hypot(r[0], r[1], r[2]) || 1;
+    r = [r[0] / rl, r[1] / rl, r[2] / rl];
+    this.right = r;
+    // up = cross(right, forward)
+    this.up = [
+      r[1] * f[2] - r[2] * f[1],
+      r[2] * f[0] - r[0] * f[2],
+      r[0] * f[1] - r[1] * f[0]
+    ];
+    this.cx = this.w / 2 + (this.panX || 0);
+    this.cy = this.h / 2 + (this.panY || 0);
+    this.focal = (this.h / 2) / Math.tan((36 * Math.PI / 180) / 2);
+  };
+
+  Renderer.prototype._projectedBounds = function () {
+    var c = this.container;
+    var pts = [
+      [0, 0, 0], [c.width, 0, 0], [c.width, c.depth, 0], [0, c.depth, 0],
+      [0, 0, c.height], [c.width, 0, c.height], [c.width, c.depth, c.height], [0, c.depth, c.height]
+    ];
+    var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9;
+    for (var i = 0; i < 8; i++) {
+      var q = this.project(pts[i]);
+      if (!q) return null;
+      minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]);
+      minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]);
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  };
+
+  // 自动取景：把整个货舱塞进视口（考虑上下工具栏留白）
+  Renderer.prototype._computeFit = function () {
+    this.panX = 0;
+    this.panY = 0;
+    this.fitScale = 1;
+    var pad = { l: 44, r: 44, t: 62, b: 56 };
+    var availW = Math.max(80, this.w - pad.l - pad.r);
+    var availH = Math.max(80, this.h - pad.t - pad.b);
+    var targetCx = pad.l + availW / 2;
+    var targetCy = pad.t + availH / 2;
+    for (var i = 0; i < 5; i++) {
+      this._updateCamera();
+      var b = this._projectedBounds();
+      if (!b || b.w < 2 || b.h < 2) break;
+      var s = Math.min(availW / b.w, availH / b.h);
+      if (!isFinite(s) || s <= 0) break;
+      this.fitScale *= 1 / Math.min(Math.max(s, 0.35), 2.6);
+      this.panX += targetCx - (b.x + b.w / 2);
+      this.panY += targetCy - (b.y + b.h / 2);
+      if (Math.abs(s - 1) < 0.01) break;
+    }
+    this._updateCamera();
+  };
+
+  Renderer.prototype.project = function (p) {
+    var vx = p[0] - this.cam[0], vy = p[1] - this.cam[1], vz = p[2] - this.cam[2];
+    var zv = vx * this.forward[0] + vy * this.forward[1] + vz * this.forward[2];
+    if (zv < 1) return null;
+    var xv = vx * this.right[0] + vy * this.right[1] + vz * this.right[2];
+    var yv = vx * this.up[0] + vy * this.up[1] + vz * this.up[2];
+    var s = this.focal / zv;
+    return [this.cx + xv * s, this.cy - yv * s, zv];
+  };
+
+  Renderer.prototype._boxCorners = function (p) {
+    var x0 = p.x, y0 = p.y, z0 = p.z;
+    var x1 = p.x + p.dx, y1 = p.y + p.dy, z1 = p.z + p.dz;
+    return [
+      [x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0],
+      [x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]
+    ];
+  };
+
+  Renderer.prototype.colorFor = function (p, index) {
+    if (this.colorMode === 'weight') {
+      var t = clamp((p.weight - 5) / 25, 0, 1);
+      return mixRgb([56, 189, 248], [251, 146, 60], t);
+    }
+    if (this.colorMode === 'order' || this.colorMode === 'step') {
+      var n = Math.max(1, this.placements.length - 1);
+      var t2 = clamp((p.step - 1) / n, 0, 1);
+      // 蓝 → 青 → 黄
+      if (t2 < 0.5) return mixRgb([56, 189, 248], [52, 211, 153], t2 * 2);
+      return mixRgb([52, 211, 153], [251, 191, 36], (t2 - 0.5) * 2);
+    }
+    if (this.colorMode === 'single') return [56, 189, 248];
+    var key = p.dest || p.groupId || 'x';
+    if (this.colorMap && this.colorMap[key]) return hexToRgb(this.colorMap[key]);
+    var c = PALETTE[hashStr(String(key)) % PALETTE.length];
+    return hexToRgb(c);
+  };
+
+  Renderer.prototype.draw = function () {
+    var ctx = this.ctx;
+    if (!this.w) this.resize();
+    var w = this.w, h = this.h, dpr = this.dpr || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    // 背景
+    var bg = ctx.createRadialGradient(w * 0.5, h * 0.35, h * 0.1, w * 0.5, h * 0.5, Math.max(w, h) * 0.78);
+    bg.addColorStop(0, '#152035');
+    bg.addColorStop(1, '#080d16');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    if (!this.container) {
+      this._drawEmpty();
+      return;
+    }
+    if (this.needsFit) {
+      this._computeFit();
+      this.needsFit = false;
+    } else {
+      this._updateCamera();
+    }
+
+    this._drawFloorGrid();
+    this._drawContainerFrame(0.22, 1);
+
+    // 面收集
+    var faces = [];
+    var list = this.placements;
+    var visible = Math.min(this.visibleCount, list.length);
+    var cam = this.cam;
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var isFuture = i >= visible;
+      if (isFuture && !this.showGhost) continue;
+      var corners = this._boxCorners(p);
+      var proj = [];
+      var ok = true;
+      for (var k = 0; k < 8; k++) {
+        var q = this.project(corners[k]);
+        if (!q) { ok = false; break; }
+        proj.push(q);
+      }
+      if (!ok) continue;
+      var rgb = this.colorFor(p, i);
+      var dim = this.selected === p.itemId || this.hoverId === p.itemId;
+      for (var fi = 0; fi < 6; fi++) {
+        var def = FACE_DEFS[fi];
+        var pts = def.idx.map(function (ix) { return proj[ix]; });
+        // 背面剔除
+        var fx = (corners[def.idx[0]][0] + corners[def.idx[2]][0]) / 2;
+        var fy = (corners[def.idx[0]][1] + corners[def.idx[2]][1]) / 2;
+        var fz = (corners[def.idx[0]][2] + corners[def.idx[2]][2]) / 2;
+        var vx = cam[0] - fx, vy = cam[1] - fy, vz = cam[2] - fz;
+        if (def.n[0] * vx + def.n[1] * vy + def.n[2] * vz <= 0) continue;
+        var depth = Math.hypot(vx, vy, vz);
+        faces.push({
+          pts: pts,
+          color: isFuture ? 'rgba(120,160,210,0.12)' : shadeColor(rgb, def.shade),
+          edge: isFuture ? 'rgba(140,180,230,0.18)' : 'rgba(4,10,20,0.55)',
+          depth: depth,
+          future: isFuture,
+          highlight: dim
+        });
+      }
+      if (dim && !isFuture) {
+        this._drawBoxOutline(ctx, proj, p.itemId === this.selected);
+      }
+    }
+
+    faces.sort(function (a, b) { return b.depth - a.depth; });
+    for (var f = 0; f < faces.length; f++) {
+      var face = faces[f];
+      ctx.beginPath();
+      ctx.moveTo(face.pts[0][0], face.pts[0][1]);
+      for (var m = 1; m < 4; m++) ctx.lineTo(face.pts[m][0], face.pts[m][1]);
+      ctx.closePath();
+      ctx.fillStyle = face.color;
+      ctx.fill();
+      ctx.lineWidth = face.highlight ? 1.8 : 1;
+      ctx.strokeStyle = face.highlight ? '#ffffff' : face.edge;
+      ctx.stroke();
+    }
+
+    this._drawContainerFrame(0.16, 1);
+
+    if (this._hoverPending && this._pointer) {
+      this._hoverPending = false;
+      var hit = this.hitTest(this._pointer.x, this._pointer.y);
+      var id = hit ? hit.itemId : null;
+      if (id !== this.hoverId) {
+        this.hoverId = id;
+        if (this.onHover) this.onHover(hit, this._pointer);
+        this.invalidate();
+      }
+    }
+  };
+
+  Renderer.prototype._drawBoxOutline = function (ctx, proj, strong) {
+    ctx.save();
+    ctx.lineWidth = strong ? 2.4 : 1.6;
+    ctx.strokeStyle = strong ? '#ffffff' : 'rgba(255,255,255,0.75)';
+    ctx.beginPath();
+    var edges = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]];
+    for (var i = 0; i < edges.length; i++) {
+      var a = proj[edges[i][0]], b = proj[edges[i][1]];
+      ctx.moveTo(a[0], a[1]);
+      ctx.lineTo(b[0], b[1]);
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  Renderer.prototype._drawFloorGrid = function () {
+    var c = this.container, ctx = this.ctx;
+    var poly = c.profile;
+    // 地面多边形
+    var pts = poly.map(function (pp) { return this.project([pp[0], 0, pp[1]]); }, this);
+    if (pts.some(function (p) { return !p; })) return;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+    ctx.closePath();
+    var g = ctx.createLinearGradient(0, 0, 0, this.h);
+    g.addColorStop(0, 'rgba(30,58,92,0.85)');
+    g.addColorStop(1, 'rgba(12,22,38,0.95)');
+    ctx.fillStyle = g;
+    ctx.fill();
+
+    // 网格
+    ctx.strokeStyle = 'rgba(90,140,190,0.20)';
+    ctx.lineWidth = 1;
+    var step = 250;
+    ctx.beginPath();
+    for (var x = 0; x <= c.width + 1; x += step) {
+      var a = this.project([x, 0, 0]), b = this.project([x, c.depth, 0]);
+      if (a && b) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+    }
+    for (var y = 0; y <= c.depth + 1; y += step) {
+      var a2 = this.project([0, y, 0]), b2 = this.project([c.width, y, 0]);
+      if (a2 && b2) { ctx.moveTo(a2[0], a2[1]); ctx.lineTo(b2[0], b2[1]); }
+    }
+    ctx.stroke();
+  };
+
+  Renderer.prototype._drawContainerFrame = function (alpha, lw) {
+    var c = this.container, ctx = this.ctx;
+    var poly = c.profile;
+    var depth = c.depth;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(103,183,255,' + alpha + ')';
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    // 两个截面
+    for (var side = 0; side < 2; side++) {
+      var y = side === 0 ? 0 : depth;
+      for (var i = 0; i < poly.length; i++) {
+        var a = this.project([poly[i][0], y, poly[i][1]]);
+        var b = this.project([poly[(i + 1) % poly.length][0], y, poly[(i + 1) % poly.length][1]]);
+        if (a && b) { ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); }
+      }
+    }
+    // 纵向棱
+    for (var k = 0; k < poly.length; k++) {
+      var p0 = this.project([poly[k][0], 0, poly[k][1]]);
+      var p1 = this.project([poly[k][0], depth, poly[k][1]]);
+      if (p0 && p1) { ctx.moveTo(p0[0], p0[1]); ctx.lineTo(p1[0], p1[1]); }
+    }
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  Renderer.prototype._chip = function (text, x, y, align) {
+    var ctx = this.ctx;
+    ctx.save();
+    ctx.font = '10.5px ui-monospace, Menlo, Consolas, monospace';
+    var tw = ctx.measureText(text).width;
+    var w = tw + 12, h = 17;
+    var bx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x;
+    var by = y - h / 2;
+    var r = 5;
+    ctx.beginPath();
+    ctx.moveTo(bx + r, by);
+    ctx.lineTo(bx + w - r, by);
+    ctx.quadraticCurveTo(bx + w, by, bx + w, by + r);
+    ctx.lineTo(bx + w, by + h - r);
+    ctx.quadraticCurveTo(bx + w, by + h, bx + w - r, by + h);
+    ctx.lineTo(bx + r, by + h);
+    ctx.quadraticCurveTo(bx, by + h, bx, by + h - r);
+    ctx.lineTo(bx, by + r);
+    ctx.quadraticCurveTo(bx, by, bx + r, by);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(8,14,24,.8)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(90,140,190,.25)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(160,192,228,.92)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, bx + 6, y + 0.5);
+    ctx.restore();
+  };
+
+  Renderer.prototype._drawDimensionLabels = function () {
+    var c = this.container;
+    var p1 = this.project([c.width / 2, 0, 0]);
+    var p2 = this.project([c.width / 2, c.depth, 0]);
+    if (p1 && p2) {
+      this._chip('纵深 ' + Math.round(c.depth), (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2 + 22, 'center');
+    }
+    var p3 = this.project([0, 0, 0]);
+    if (p3) this._chip('宽 ' + Math.round(c.width), p3[0] - 8, p3[1] + 20, 'right');
+    var p4 = this.project([0, 0, 0]);
+    var p5 = this.project([0, 0, c.height]);
+    if (p4 && p5) this._chip('高 ' + Math.round(c.height), (p4[0] + p5[0]) / 2 - 10, (p4[1] + p5[1]) / 2, 'right');
+  };
+
+  Renderer.prototype._drawEmpty = function () {
+    var ctx = this.ctx;
+    ctx.save();
+    ctx.fillStyle = 'rgba(120,150,190,0.6)';
+    ctx.font = '14px "Microsoft YaHei", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('载入货舱并添加行李后，此处显示三维装载方案', this.w / 2, this.h / 2);
+    ctx.restore();
+  };
+
+  Renderer.prototype.hitTest = function (mx, my) {
+    var rect = this.canvas.getBoundingClientRect();
+    var x = mx - rect.left, y = my - rect.top;
+    var visible = Math.min(this.visibleCount, this.placements.length);
+    var best = null, bestDepth = Infinity;
+    for (var i = 0; i < visible; i++) {
+      var p = this.placements[i];
+      var corners = this._boxCorners(p);
+      var minX = 1e9, maxX = -1e9, minY = 1e9, maxY = -1e9, depthSum = 0, ok = true;
+      for (var k = 0; k < 8; k++) {
+        var q = this.project(corners[k]);
+        if (!q) { ok = false; break; }
+        minX = Math.min(minX, q[0]); maxX = Math.max(maxX, q[0]);
+        minY = Math.min(minY, q[1]); maxY = Math.max(maxY, q[1]);
+        depthSum += q[2];
+      }
+      if (!ok) continue;
+      if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+        var d = depthSum / 8;
+        if (d < bestDepth) { bestDepth = d; best = p; }
+      }
+    }
+    return best;
+  };
+
+  root.BagRenderer = Renderer;
+  Renderer.paletteFor = function (key) {
+    return PALETTE[hashStr(String(key == null ? 'x' : key)) % PALETTE.length];
+  };
+  Renderer.PALETTE = PALETTE;
+})(window);
+
+</script>
+<script>
+/*
+ * 行李装载优化系统 · 界面逻辑
+ */
+(function () {
+  'use strict';
+
+  var BP = window.BagPacker;
+  var $ = function (id) { return document.getElementById(id); };
+
+  var state = {
+    container: null,
+    profileMode: 'taper',
+    groups: [],
+    result: null,
+    opt: null,
+    running: false,
+    tab: 'placed',
+    selected: null,
+    playing: false,
+    playTimer: null,
+    groupSeq: 0,
+    stale: false,
+    anim: null
+  };
+
+  var renderer = null;
+
+  /* ============================================================
+   * 工具
+   * ============================================================ */
+  function fmt(n, d) {
+    if (!isFinite(n)) return '—';
+    return Number(n).toFixed(d == null ? 1 : d);
+  }
+  function m3(mm3) { return (mm3 / 1e9).toFixed(2); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  var toastTimer = null;
+  function toast(msg, isErr) {
+    var el = $('toast');
+    el.textContent = msg;
+    el.className = 'toast show' + (isErr ? ' err' : '');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.className = 'toast'; }, 2600);
+  }
+
+  /* ============================================================
+   * 货舱
+   * ============================================================ */
+  function applyPreset(key) {
+    var p = BP.PRESETS[key];
+    if (!p) return;
+    state.profileMode = (key === 'bulk' || key === 'custom') ? 'rect' : 'taper';
+    state.container = {
+      key: key,
+      name: p.name,
+      width: p.width,
+      depth: p.depth,
+      height: p.height,
+      maxWeight: p.maxWeight,
+      note: p.note,
+      profile: p.profile.map(function (q) { return [q[0], q[1]]; })
+    };
+    syncContainerUI();
+    markStale();
+  }
+
+  function syncContainerUI() {
+    var c = state.container;
+    $('cw').value = Math.round(c.width);
+    $('cd').value = Math.round(c.depth);
+    $('ch').value = Math.round(c.height);
+    $('cmax').value = Math.round(c.maxWeight);
+    $('profileMode').value = state.profileMode;
+    $('containerVol').textContent = m3(BP.containerVolume(c)) + ' m³ · 上限 ' + Math.round(c.maxWeight) + ' kg';
+    renderProfilePreview();
+    $('vpInfo').textContent = c.name + ' · ' + Math.round(c.width) + ' × ' + Math.round(c.depth) + ' × ' +
+      Math.round(c.height) + ' mm · 可用容积 ' + m3(BP.containerVolume(c)) + ' m³';
+  }
+
+  function readContainerInputs() {
+    var c = state.container;
+    var w = +$('cw').value, d = +$('cd').value, h = +$('ch').value, mw = +$('cmax').value;
+    if (!(w > 0) || !(d > 0) || !(h > 0)) { toast('货舱尺寸必须大于 0', true); return false; }
+    c.width = w; c.depth = d; c.height = h;
+    c.maxWeight = mw > 0 ? mw : 1000;
+    state.profileMode = $('profileMode').value;
+    rebuildProfile();
+    c.name = BP.PRESETS[c.key] ? BP.PRESETS[c.key].name : '自定义货舱';
+    $('containerVol').textContent = m3(BP.containerVolume(c)) + ' m³ · 上限 ' + Math.round(c.maxWeight) + ' kg';
+    renderProfilePreview();
+    $('vpInfo').textContent = c.name + ' · ' + Math.round(c.width) + ' × ' + Math.round(c.depth) + ' × ' +
+      Math.round(c.height) + ' mm · 可用容积 ' + m3(BP.containerVolume(c)) + ' m³';
+    return true;
+  }
+
+  function rebuildProfile() {
+    var c = state.container;
+    c.profile = state.profileMode === 'taper'
+      ? BP.ld3Profile(c.width, c.height)
+      : BP.rectProfile(c.width, c.height);
+  }
+
+  function renderProfilePreview() {
+    var c = state.container;
+    var svg = $('profileSvg');
+    var W = 260, H = 120, pad = 18;
+    var s = Math.min((W - pad * 2) / Math.max(1, c.width), (H - pad * 2 - 8) / Math.max(1, c.height));
+    var ox = (W - c.width * s) / 2;
+    var oy = H - pad;
+    var pts = c.profile.map(function (p) {
+      return (ox + p[0] * s).toFixed(1) + ',' + (oy - p[1] * s).toFixed(1);
+    }).join(' ');
+    var gid = 'pgrad';
+    svg.innerHTML =
+      '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="rgba(56,189,248,.28)"/>' +
+      '<stop offset="100%" stop-color="rgba(56,189,248,.06)"/></linearGradient></defs>' +
+      '<line x1="8" y1="' + (oy + 1) + '" x2="' + (W - 8) + '" y2="' + (oy + 1) +
+      '" stroke="rgba(139,163,196,.35)" stroke-width="1" stroke-dasharray="4 4"/>' +
+      '<polygon points="' + pts + '" fill="url(#' + gid + ')" stroke="#38bdf8" stroke-width="1.6" stroke-linejoin="round"/>' +
+      '<text x="' + (W / 2) + '" y="' + (H - 4) + '" fill="#8ba3c4" font-size="9.5" text-anchor="middle">' +
+      '截面 ' + Math.round(c.width) + ' × ' + Math.round(c.height) + ' mm</text>' +
+      '<text x="6" y="12" fill="#64789a" font-size="8.5">宽 ' + Math.round(c.width) + ' mm</text>' +
+      '<text x="6" y="24" fill="#64789a" font-size="8.5">高 ' + Math.round(c.height) + ' mm</text>';
+  }
+
+  /* ============================================================
+   * 行李清单
+   * ============================================================ */
+  function autoName(g) {
+    if (g.stack === 0) return '易碎件';
+    if (g.l >= 1100) return '超规行李';
+    if (g.l >= 700) return '大行李箱';
+    if (g.l >= 550) return '行李箱';
+    if (g.l >= 400) return '软质包';
+    return '小件行李';
+  }
+
+  function addGroup(g) {
+    var same = state.groups.find(function (x) {
+      return x.l === g.l && x.w === g.w && x.h === g.h && x.weight === g.weight &&
+        x.rotate === g.rotate && x.stack === g.stack && x.dest === g.dest && x.name === g.name;
+    });
+    if (same) {
+      same.qty += g.qty;
+    } else {
+      g.id = 'G' + (++state.groupSeq);
+      state.groups.push(g);
+    }
+    renderBags();
+    markStale();
+  }
+
+  function refreshDestColors(placements) {
+    var list = [];
+    state.groups.forEach(function (g) {
+      if (list.indexOf(g.dest) < 0) list.push(g.dest);
+    });
+    (placements || []).forEach(function (p) {
+      if (list.indexOf(p.dest) < 0) list.push(p.dest);
+    });
+    var map = {};
+    list.forEach(function (d, i) {
+      map[d] = window.BagRenderer.PALETTE[i % window.BagRenderer.PALETTE.length];
+    });
+    state.destColors = map;
+    if (renderer) renderer.colorMap = map;
+    return map;
+  }
+
+  function destColor(dest) {
+    return (state.destColors && state.destColors[dest]) || window.BagRenderer.paletteFor(dest);
+  }
+
+  function renderBags() {
+    refreshDestColors(state.result ? state.result.placements : null);
+    var wrap = $('bagList');
+    if (!state.groups.length) {
+      wrap.innerHTML = '<div class="bag-empty">尚未添加行李，可点击「载入示例」快速体验</div>';
+    } else {
+      wrap.innerHTML = state.groups.map(function (g) {
+        var color = destColor(g.dest);
+        return '<div class="bag-item" data-id="' + g.id + '">' +
+          '<span class="dot" style="background:' + color + ';color:' + color + '"></span>' +
+          '<div class="bag-main">' +
+          '<div class="bag-title">' + esc(g.name) + '<span class="qty">×' + g.qty + '</span></div>' +
+          '<div class="bag-sub">' + g.l + '×' + g.w + '×' + g.h + ' · ' + g.weight + 'kg · ' +
+          (g.rotate === 'free' ? '可翻转' : g.rotate === 'none' ? '固定朝向' : '仅水平旋转') +
+          ' · ' + (g.stack === 0 ? '不可压' : '可压' + g.stack + '层') + ' · ' + esc(g.dest) + '</div>' +
+          '</div>' +
+          '<button class="icon-btn del" title="删除" data-del="' + g.id + '">✕</button>' +
+          '</div>';
+      }).join('');
+    }
+    updateBagSummary();
+  }
+
+  function updateBagSummary() {
+    var items = 0, vol = 0, wgt = 0;
+    state.groups.forEach(function (g) {
+      items += g.qty;
+      vol += g.qty * g.l * g.w * g.h;
+      wgt += g.qty * g.weight;
+    });
+    $('bagSummary').textContent = state.groups.length
+      ? state.groups.length + ' 组 / ' + items + ' 件 · ' + m3(vol) + ' m³ · ' + fmt(wgt, 0) + ' kg'
+      : '—';
+  }
+
+  /* ============================================================
+   * 示例数据
+   * ============================================================ */
+  function sampleGroups() {
+    return [
+      { name: '20寸登机箱', l: 560, w: 400, h: 230, weight: 8, qty: 13, rotate: 'upright', stack: 3, dest: 'PEK' },
+      { name: '24寸行李箱', l: 680, w: 480, h: 280, weight: 15, qty: 10, rotate: 'upright', stack: 3, dest: 'SHA' },
+      { name: '28寸行李箱', l: 780, w: 540, h: 320, weight: 22, qty: 7, rotate: 'upright', stack: 2, dest: 'CAN' },
+      { name: '软质旅行包', l: 500, w: 350, h: 250, weight: 7, qty: 7, rotate: 'free', stack: 3, dest: 'SHA' },
+      { name: '双肩背包', l: 450, w: 300, h: 200, weight: 6, qty: 7, rotate: 'free', stack: 3, dest: 'CTU' },
+      { name: '纸箱（易碎）', l: 400, w: 300, h: 250, weight: 9, qty: 3, rotate: 'upright', stack: 0, dest: 'PEK' },
+      { name: '高尔夫球包', l: 1200, w: 300, h: 300, weight: 12, qty: 1, rotate: 'none', stack: 1, dest: 'CAN' },
+      { name: '折叠婴儿车', l: 800, w: 450, h: 300, weight: 10, qty: 1, rotate: 'upright', stack: 1, dest: 'CTU' }
+    ];
+  }
+
+  function loadSample() {
+    state.groups = [];
+    state.groupSeq = 0;
+    sampleGroups().forEach(function (g) { addGroup(g); });
+    state.groupSeq = state.groups.length + 1;
+  }
+
+  /* ============================================================
+   * 优化计算
+   * ============================================================ */
+  function run() {
+    if (state.running) return;
+    if (!state.groups.length) { toast('请先添加行李', true); return; }
+    if (!readContainerInputs()) return;
+
+    var items = BP.expandGroups(state.groups);
+    var c = state.container;
+    var trials = +$('trials').value;
+    var supportRatio = +$('support').value / 100;
+    var seed = +$('seed').value || 1;
+    var testMode = /[?&]fast=1/.test(location.search);
+
+    stopAnim();
+    state.opt = new BP.Optimizer(items, c, {
+      trials: trials,
+      supportRatio: supportRatio,
+      seed: seed,
+      timeLimitMs: testMode ? 120000 : 5000,
+      fullEps: false
+    });
+
+    state.running = true;
+    state.stale = false;
+    $('btnRun').disabled = true;
+    $('btnRun').textContent = '优化计算中…';
+    $('progress').classList.remove('done');
+    $('progressBar').style.width = '0%';
+
+    var t0 = performance.now();
+    function tick() {
+      var done = state.opt.step(26);
+      var pct = Math.min(100, Math.round((state.opt.trial / trials) * 100));
+      $('progressBar').style.width = pct + '%';
+      var best = state.opt.best ? state.opt.best.metrics.volumeUtil : 0;
+      $('progressText').textContent = '搜索 ' + state.opt.trial + ' / ' + trials +
+        ' · 当前最优 ' + fmt(best * 100) + '%';
+      if (!done && performance.now() - t0 < (testMode ? 120000 : 12000)) {
+        requestAnimationFrame(tick);
+      } else {
+        finish();
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function finish() {
+    state.running = false;
+    var res = state.opt.result();
+    state.result = res;
+    $('btnRun').disabled = false;
+    $('btnRun').textContent = '重新优化计算';
+    $('progressBar').style.width = '100%';
+    $('progress').classList.add('done');
+    $('progressText').textContent = '完成 · ' + res.trials + ' 次搜索 · ' + Math.round(res.elapsed) + ' ms';
+    applyResult(res, true);
+  }
+
+  function applyResult(res, animate) {
+    var placements = res.placements;
+    refreshDestColors(placements);
+    renderer.setData(state.container, placements);
+    renderer.colorMode = $('colorMode').value;
+    $('vpEmpty').classList.add('hidden');
+
+    var m = res.metrics;
+    renderMetrics(m, res);
+    renderTable(res);
+    renderLegend(res);
+    updateBadges(res);
+
+    var total = placements.length;
+    $('seqSlider').max = total;
+    $('seqSlider').value = total;
+    $('seqLabel').textContent = total + ' / ' + total;
+    renderer.visibleCount = total;
+
+    if (animate && total > 0 && !/[?&]noanim=1/.test(location.search)) {
+      animateReveal(total);
+    } else {
+      renderer.visibleCount = total;
+      $('seqSlider').value = total;
+      $('seqLabel').textContent = total + ' / ' + total;
+      renderer.invalidate();
+    }
+    applyUrlView();
+    state.stale = false;
+  }
+
+  function applyUrlView() {
+    if (state.urlViewApplied) return;
+    state.urlViewApplied = true;
+    var q = new URLSearchParams(location.search);
+    var v = q.get('view');
+    if (v) {
+      renderer.viewPreset(v);
+      document.querySelectorAll('.seg .chip').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-view') === v);
+      });
+    }
+    var c = q.get('color');
+    if (c) {
+      $('colorMode').value = c;
+      renderer.colorMode = c;
+      renderer.invalidate();
+    }
+    if (q.get('tab') === 'unplaced') {
+      state.tab = 'unplaced';
+      document.querySelectorAll('.tab').forEach(function (t) {
+        t.classList.toggle('active', t.getAttribute('data-tab') === 'unplaced');
+      });
+      if (state.result) renderTable(state.result);
+    }
+  }
+
+  function animateReveal(total) {
+    stopAnim();
+    var t0 = performance.now();
+    var dur = Math.min(1600, 420 + total * 22);
+    renderer.visibleCount = 0;
+    function step(t) {
+      var k = Math.min(1, (t - t0) / dur);
+      var n = Math.round(k * total);
+      renderer.visibleCount = n;
+      $('seqSlider').value = n;
+      $('seqLabel').textContent = n + ' / ' + total;
+      renderer.invalidate();
+      if (k < 1) state.anim = requestAnimationFrame(step);
+      else state.anim = null;
+    }
+    state.anim = requestAnimationFrame(step);
+  }
+
+  function stopAnim() {
+    if (state.anim) cancelAnimationFrame(state.anim);
+    state.anim = null;
+  }
+
+  /* ============================================================
+   * 指标
+   * ============================================================ */
+  function renderMetrics(m, res) {
+    var cgRatio = Math.max(Math.abs(m.cgOffsetRatioX), Math.abs(m.cgOffsetRatioY));
+    var cgClass = cgRatio < 0.12 ? 'good' : cgRatio < 0.25 ? 'warn' : 'bad';
+    var volClass = m.volumeUtil >= 0.75 ? 'good' : m.volumeUtil >= 0.6 ? '' : 'warn';
+    var wClass = m.weightUtil >= 0.7 ? 'good' : m.weightUtil >= 0.4 ? '' : '';
+    var countClass = res.unplaced.length === 0 ? 'good' : 'warn';
+
+    var cards = [
+      {
+        k: '体积利用率', v: fmt(m.volumeUtil * 100), u: '%', cls: volClass,
+        s: m3(m.placedVolume) + ' / ' + m3(m.containerVolume) + ' m³'
+      },
+      {
+        k: '载重利用率', v: fmt(m.weightUtil * 100), u: '%', cls: wClass,
+        s: Math.round(m.placedWeight) + ' / ' + Math.round(state.container.maxWeight) + ' kg'
+      },
+      {
+        k: '装载件数', v: m.placedCount, u: '/ ' + m.totalCount, cls: countClass,
+        s: res.unplaced.length ? res.unplaced.length + ' 件未装入' : '全部装入'
+      },
+      {
+        k: '重心偏移', v: fmt(cgRatio * 100), u: '%', cls: cgClass,
+        s: 'Δx ' + Math.round(m.cgOffsetX) + ' · Δy ' + Math.round(m.cgOffsetY) + ' mm'
+      },
+      {
+        k: '平均支撑率', v: fmt(m.avgSupport * 100), u: '%', cls: m.avgSupport > 0.9 ? 'good' : '',
+        s: '底面有效接触'
+      },
+      {
+        k: '装载高度', v: Math.round(m.maxTop), u: 'mm', cls: '',
+        s: '余高 ' + Math.max(0, Math.round(state.container.height - m.maxTop)) + ' mm · 上限 ' + Math.round(state.container.height)
+      }
+    ];
+
+    $('metrics').innerHTML = cards.map(function (c) {
+      return '<div class="metric ' + c.cls + '">' +
+        '<div class="k">' + c.k + '</div>' +
+        '<div class="v">' + c.v + '<small>' + c.u + '</small></div>' +
+        '<div class="s">' + c.s + '</div>' +
+        '</div>';
+    }).join('');
+  }
+
+  /* ============================================================
+   * 结果表
+   * ============================================================ */
+  function renderTable(res) {
+    var wrap = $('tableWrap');
+    if (state.tab === 'placed') {
+      if (!res.placements.length) {
+        wrap.innerHTML = '<div class="table-empty">没有装入任何行李</div>';
+        return;
+      }
+      var rows = res.placements.map(function (p) {
+        return '<tr data-id="' + esc(p.itemId) + '"' + (state.selected === p.itemId ? ' class="selected"' : '') + '>' +
+          '<td class="num">' + p.step + '</td>' +
+          '<td>' + esc(p.itemId) + '</td>' +
+          '<td class="name">' + esc(p.name) + '</td>' +
+          '<td>' + Math.round(p.dx) + '×' + Math.round(p.dy) + '×' + Math.round(p.dz) + '</td>' +
+          '<td>' + Math.round(p.x) + ', ' + Math.round(p.y) + ', ' + Math.round(p.z) + '</td>' +
+          '<td>' + (p.supportRatio * 100).toFixed(0) + '%</td>' +
+          '<td><span class="tag">' + esc(p.dest) + '</span></td>' +
+          '</tr>';
+      }).join('');
+      wrap.innerHTML = '<table><thead><tr>' +
+        '<th>步</th><th>编号</th><th>名称</th><th>尺寸 mm</th><th>位置 x,y,z</th><th>支撑</th><th>目的地</th>' +
+        '</tr></thead><tbody>' + rows + '</tbody></table>';
+    } else {
+      if (!res.unplaced.length) {
+        wrap.innerHTML = '<div class="table-empty">全部行李均已装入 ✓</div>';
+        return;
+      }
+      var rows2 = res.unplaced.map(function (u) {
+        return '<tr>' +
+          '<td>' + esc(u.itemId) + '</td>' +
+          '<td class="name">' + esc(u.name) + '</td>' +
+          '<td>' + Math.round(u.dims[0]) + '×' + Math.round(u.dims[1]) + '×' + Math.round(u.dims[2]) + '</td>' +
+          '<td>' + u.weight + '</td>' +
+          '<td><span class="tag warn">' + esc(u.reason) + '</span></td>' +
+          '</tr>';
+      }).join('');
+      wrap.innerHTML = '<table><thead><tr>' +
+        '<th>编号</th><th>名称</th><th>尺寸 mm</th><th>重量 kg</th><th>原因</th>' +
+        '</tr></thead><tbody>' + rows2 + '</tbody></table>';
+    }
+  }
+
+  function updateBadges(res) {
+    $('placedBadge').textContent = res.placements.length;
+    $('unplacedBadge').textContent = res.unplaced.length;
+    var supportRatio = +$('support').value / 100;
+    var v = BP.validatePlan(res.placements, state.container, supportRatio);
+    var el = $('verifyBadge');
+    if (v.ok) {
+      el.className = 'verify';
+      el.textContent = '✓ 几何约束校验通过';
+    } else {
+      el.className = 'verify bad';
+      el.textContent = '✗ ' + v.errors[0];
+    }
+  }
+
+  function renderLegend(res) {
+    var el = $('legend');
+    var mode = $('colorMode').value;
+    if (mode === 'dest') {
+      var map = {};
+      res.placements.forEach(function (p) { map[p.dest] = (map[p.dest] || 0) + 1; });
+      var keys = Object.keys(map);
+      el.innerHTML = keys.slice(0, 8).map(function (k) {
+        return '<div class="lg-item"><span class="lg-swatch" style="background:' +
+          destColor(k) + '"></span>' + esc(k) + ' · ' + map[k] + '</div>';
+      }).join('');
+    } else if (mode === 'weight') {
+      el.innerHTML = '<div class="lg-item">轻 ← <span class="lg-gradient"></span> → 重</div>';
+    } else if (mode === 'order') {
+      el.innerHTML = '<div class="lg-item">先装 <span class="lg-gradient"></span> 后装</div>';
+    } else {
+      el.innerHTML = '';
+    }
+  }
+
+  /* ============================================================
+   * 选择与悬停
+   * ============================================================ */
+  function selectItem(itemId) {
+    state.selected = itemId;
+    renderer.selected = itemId;
+    renderer.invalidate();
+    var rows = document.querySelectorAll('#tableWrap tbody tr');
+    for (var i = 0; i < rows.length; i++) {
+      rows[i].classList.toggle('selected', rows[i].getAttribute('data-id') === itemId);
+    }
+    if (itemId) {
+      var res = state.result;
+      var p = res.placements.find(function (x) { return x.itemId === itemId; });
+      if (p) {
+        renderer.visibleCount = Math.max(renderer.visibleCount, p.step);
+        $('seqSlider').value = renderer.visibleCount;
+        $('seqLabel').textContent = renderer.visibleCount + ' / ' + res.placements.length;
+        renderer.invalidate();
+      }
+    }
+  }
+
+  /* ============================================================
+   * 导出 / 导入
+   * ============================================================ */
+  function download(name, content, type) {
+    var blob = new Blob([content], { type: type || 'application/json;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  }
+
+  function exportJson() {
+    if (!state.result) { toast('请先完成优化计算', true); return; }
+    var res = state.result;
+    var c = state.container;
+    var payload = {
+      schema: 'baggage-loader/v1',
+      generatedAt: new Date().toISOString(),
+      container: {
+        name: c.name, width: c.width, depth: c.depth, height: c.height,
+        maxWeight: c.maxWeight, profile: c.profile
+      },
+      options: {
+        supportRatio: +$('support').value / 100,
+        trials: res.trials,
+        seed: +$('seed').value,
+        algorithm: 'Extreme-Point Best-Fit Multi-Start'
+      },
+      groups: state.groups,
+      placements: res.placements.map(function (p) {
+        return {
+          itemId: p.itemId, name: p.name, groupId: p.groupId, dest: p.dest, weight: p.weight,
+          x: p.x, y: p.y, z: p.z, dx: p.dx, dy: p.dy, dz: p.dz,
+          step: p.step, supportRatio: p.supportRatio
+        };
+      }),
+      unplaced: res.unplaced,
+      metrics: res.metrics
+    };
+    download('装载方案-' + new Date().toISOString().slice(0, 10) + '.json', JSON.stringify(payload, null, 2));
+    toast('方案 JSON 已导出');
+  }
+
+  function exportCsv() {
+    if (!state.result) { toast('请先完成优化计算', true); return; }
+    var res = state.result;
+    var c = state.container;
+    var lines = [];
+    lines.push('# 货舱,' + c.name + ',尺寸,' + Math.round(c.width) + 'x' + Math.round(c.depth) + 'x' + Math.round(c.height) + 'mm' + ',载重上限,' + c.maxWeight + 'kg');
+    lines.push('# 体积利用率,' + fmt(res.metrics.volumeUtil * 100, 2) + '%,' + '载重利用率,' + fmt(res.metrics.weightUtil * 100, 2) + '%,' + '装载件数,' + res.placements.length + '/' + res.metrics.totalCount);
+    lines.push('步骤,行李编号,名称,目的地,长(mm),宽(mm),高(mm),重量(kg),X(mm),Y(mm),Z(mm),底面支撑率(%),装载层高(mm)');
+    res.placements.forEach(function (p) {
+      lines.push([
+        p.step, p.itemId, p.name, p.dest,
+        Math.round(p.dx), Math.round(p.dy), Math.round(p.dz), p.weight,
+        Math.round(p.x), Math.round(p.y), Math.round(p.z),
+        (p.supportRatio * 100).toFixed(1), Math.round(p.z + p.dz)
+      ].join(','));
+    });
+    if (res.unplaced.length) {
+      lines.push('');
+      lines.push('未装载件,名称,尺寸(mm),重量(kg),原因');
+      res.unplaced.forEach(function (u) {
+        lines.push([u.itemId, u.name, u.dims.map(Math.round).join('x'), u.weight, u.reason].join(','));
+      });
+    }
+    download('装载单-' + new Date().toISOString().slice(0, 10) + '.csv', '\ufeff' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+    toast('装载单 CSV 已导出');
+  }
+
+  function importJson(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      try {
+        importPlanData(JSON.parse(reader.result));
+      } catch (err) {
+        toast('导入失败：' + err.message, true);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  /** 载入一份方案（网页导出的 JSON 或 Python 版输出） */
+  function importPlanData(data) {
+    if (!data || !data.container || !Array.isArray(data.placements)) {
+      throw new Error('缺少 container / placements 字段');
+    }
+    var c = data.container;
+    state.container = {
+      key: 'custom', name: c.name || '导入货舱',
+      width: c.width, depth: c.depth, height: c.height,
+      maxWeight: c.maxWeight || 1500,
+      profile: (c.profile && c.profile.length >= 3) ? c.profile.map(function (q) { return [+q[0], +q[1]]; }) : BP.rectProfile(c.width, c.height)
+    };
+    state.profileMode = looksTapered(state.container.profile) ? 'taper' : 'rect';
+    if (Array.isArray(data.groups) && data.groups.length) {
+      state.groups = data.groups.map(function (g, i) {
+        return {
+          id: g.id || ('G' + (i + 1)), name: g.name || autoName(g),
+          l: +g.l, w: +g.w, h: +g.h, weight: +g.weight, qty: +g.qty || 1,
+          rotate: g.rotate || 'upright', stack: g.stack == null ? 3 : +g.stack, dest: g.dest || '默认'
+        };
+      });
+      state.groupSeq = state.groups.length + 1;
+    }
+    syncContainerUI();
+    renderBags();
+    var placements = data.placements.map(function (p) {
+      return {
+        itemId: p.itemId, name: p.name || p.itemId, groupId: p.groupId,
+        x: +p.x, y: +p.y, z: +p.z, dx: +p.dx, dy: +p.dy, dz: +p.dz,
+        weight: +p.weight || 0, dest: p.dest || '默认',
+        step: +p.step || 0, supportRatio: p.supportRatio == null ? 1 : +p.supportRatio,
+        stackLimit: 3, stackAbove: 0
+      };
+    });
+    if (placements.some(function (p) { return !p.step; })) BP.assignSequence(placements);
+    placements.sort(function (a, b) { return a.step - b.step; });
+    var items = BP.expandGroups(state.groups);
+    var metrics = data.metrics || BP.computeMetrics(placements, items, state.container);
+    var res = {
+      placements: placements,
+      unplaced: data.unplaced || [],
+      metrics: metrics,
+      trials: (data.options && data.options.trials) || 0,
+      elapsed: 0
+    };
+    state.result = res;
+    applyResult(res, false);
+    $('progress').classList.add('done');
+    $('progressText').textContent = '已导入方案 · ' + placements.length + ' 件行李';
+    $('btnRun').textContent = '重新优化计算';
+    toast('方案导入成功');
+    return res;
+  }
+
+  function looksTapered(profile) {
+    var ys = profile.map(function (p) { return p[1]; });
+    var xs = profile.map(function (p) { return p[0]; });
+    var maxY = Math.max.apply(null, ys);
+    var topXs = profile.filter(function (p) { return Math.abs(p[1] - maxY) < 1; }).map(function (p) { return p[0]; });
+    return Math.min.apply(null, xs) >= 0 && Math.max.apply(null, topXs) < Math.max.apply(null, xs) - 1;
+  }
+
+  /* ============================================================
+   * 装载序列播放
+   * ============================================================ */
+  function setVisible(n) {
+    stopAnim();
+    var total = state.result ? state.result.placements.length : 0;
+    n = Math.max(0, Math.min(total, n));
+    renderer.visibleCount = n;
+    $('seqSlider').value = n;
+    $('seqLabel').textContent = n + ' / ' + total;
+    renderer.invalidate();
+  }
+
+  function togglePlay() {
+    if (!state.result || !state.result.placements.length) return;
+    if (state.playing) {
+      clearInterval(state.playTimer);
+      state.playing = false;
+      $('btnPlay').textContent = '▶';
+      return;
+    }
+    var total = state.result.placements.length;
+    if (+$('seqSlider').value >= total) setVisible(0);
+    state.playing = true;
+    $('btnPlay').textContent = '⏸';
+    state.playTimer = setInterval(function () {
+      var n = +$('seqSlider').value + 1;
+      if (n > total) {
+        clearInterval(state.playTimer);
+        state.playing = false;
+        $('btnPlay').textContent = '▶';
+        return;
+      }
+      setVisible(n);
+    }, 210);
+  }
+
+  /* ============================================================
+   * 脏状态提示
+   * ============================================================ */
+  function markStale() {
+    if (!state.result) return;
+    state.stale = true;
+    $('progress').classList.remove('done');
+    $('progressText').textContent = '参数已变更，请重新计算';
+    $('progressBar').style.width = '0%';
+  }
+
+  /* ============================================================
+   * 算法说明
+   * ============================================================ */
+  function helpHtml() {
+    return '' +
+      '<h3>1 · 问题建模</h3>' +
+      '<p>把货舱视为沿机身方向（y 轴）拉伸的棱柱：截面为 <b>宽 × 高</b> 的多边形（矩形或 LD3 的 45° 斜角轮廓），' +
+      '行李为可任意平移、按规则旋转的长方体。目标是确定每件行李的<b>位置与朝向</b>，使装入体积最大，同时满足全部工程约束。</p>' +
+      '<div class="formula">决策变量：每件行李的 (x, y, z) 与朝向 o ∈ O<sub>i</sub><br>' +
+      '目标：max Σ v<sub>i</sub>·p<sub>i</sub>（装入体积），次级目标 min 重心偏移</div>' +
+      '<h3>2 · 约束条件</h3>' +
+      '<ol>' +
+      '<li><b>几何约束</b>：不越界、不重叠，且整箱落在货舱截面轮廓之内（斜角处不能放高箱）。</li>' +
+      '<li><b>支撑约束</b>：行李底面必须有不低于设定比例的接触面积（默认 82%），避免悬空——这是机械臂/人工堆码的真实要求。</li>' +
+      '<li><b>堆叠约束</b>：易碎、不可压行李上方禁止再放行李；普通行李可承受的层数可配置。</li>' +
+      '<li><b>载重约束</b>：总重量不超过集装箱/货舱上限。</li>' +
+      '<li><b>配载平衡</b>：质量加权重心尽量靠近货舱中心，用横向、纵向偏移率衡量。</li>' +
+      '</ol>' +
+      '<h3>3 · 求解算法</h3>' +
+      '<p>核心是 <b>极值点法（Extreme Point）+ 最佳适配（Best-Fit）</b> 的贪心构造：</p>' +
+      '<ol>' +
+      '<li>维护一个「极值点」集合，初始只有原点 (0,0,0)。极值点即当前所有可能落位的候选角点。</li>' +
+      '<li>按启发式顺序取出一件行李，枚举其全部合法朝向与全部极值点，逐一检查越界、截面、重叠、支撑与堆叠约束。</li>' +
+      '<li>对每个可行落位计算评分：<code>score = a·(z+h)/H + b·(y+d)/D + c·x/W − d·接触率</code>，取评分最小者落位。</li>' +
+      '<li>落位后把该箱的 3 个远角加入极值点集合，继续下一件。</li>' +
+      '<li>由于贪心结果依赖装入顺序，外层再做 <b>多起点随机搜索</b>：随机切换 7 种排序启发式（体积、最长边、高度、底面积、重量、随机、易碎后置），' +
+      '并随机扰动评分权重，重复 N 次取装入体积最大者。相同随机种子可完全复现。</li>' +
+      '</ol>' +
+      '<h3>4 · 指标含义</h3>' +
+      '<ul>' +
+      '<li><b>体积利用率</b> = 已装行李体积 ÷ 货舱可用容积（LD3 斜角处已从容积中扣除）。</li>' +
+      '<li><b>载重利用率</b> = 已装重量 ÷ 载重上限。</li>' +
+      '<li><b>重心偏移</b> = 质量加权重心相对货舱几何中心的横向/纵向偏移，取较大者除以半宽（半深）的百分比。</li>' +
+      '<li><b>平均支撑率</b> = 各件行李底面有效接触面积比例的平均值，反映堆码稳定性。</li>' +
+      '<li><b>装载高度</b> = 最高件顶部高度，余高用于判断是否能再压一层。</li>' +
+      '</ul>' +
+      '<h3>5 · 与真实自动化装载的衔接</h3>' +
+      '<p>结果中的「装载顺序」按<b>由下至上、由内向外</b>生成，直接对应机械臂/输送线的作业序列；' +
+      '导出的装载单包含每件行李的坐标、朝向与层高，可作为 PLC / 机器人抓取程序的输入。' +
+      '重心指标可用于在装舱前预判配载平衡，必要时调整重件位置或分舱装载。</p>' +
+      '<h3>6 · 复杂度与局限</h3>' +
+      '<p>单次构造的时间复杂度约为 <code>O(n²·|O|)</code>（n 为件数，|O| ≤ 6 个朝向），60 件行李单次约 3–6 ms；' +
+      '多起点 48 次通常在 0.3 s 内完成。当前为启发式算法，不保证全局最优；' +
+      '如需更高装载率，可在此基础上叠加「移除-重插」局部搜索、整层规划或列生成等精确方法。</p>';
+  }
+
+  /* ============================================================
+   * 事件绑定
+   * ============================================================ */
+  function bind() {
+    $('preset').addEventListener('change', function () {
+      applyPreset(this.value);
+      run();
+    });
+
+    ['cw', 'cd', 'ch', 'cmax'].forEach(function (id) {
+      $(id).addEventListener('change', function () {
+        if (readContainerInputs()) { markStale(); }
+      });
+    });
+    $('profileMode').addEventListener('change', function () {
+      state.profileMode = this.value;
+      rebuildProfile();
+      $('containerVol').textContent = m3(BP.containerVolume(state.container)) + ' m³ · 上限 ' + Math.round(state.container.maxWeight) + ' kg';
+      renderProfilePreview();
+      markStale();
+    });
+
+    $('bagForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var g = {
+        name: ($('bname').value || '').trim(),
+        l: +$('bl').value, w: +$('bw').value, h: +$('bh').value,
+        weight: +$('bkg').value, qty: Math.max(1, Math.min(99, +$('bqty').value || 1)),
+        rotate: $('brot').value, stack: +$('bstack').value,
+        dest: (($('bdest').value || '').trim() || '默认').toUpperCase()
+      };
+      if (!(g.l > 0 && g.w > 0 && g.h > 0 && g.weight > 0)) { toast('请填写有效的尺寸与重量', true); return; }
+      if (!g.name) g.name = autoName(g);
+      addGroup(g);
+      $('bname').value = '';
+      toast('已添加 ' + g.qty + ' 件 ' + g.name);
+    });
+
+    $('bagList').addEventListener('click', function (e) {
+      var del = e.target.closest('[data-del]');
+      if (!del) return;
+      var id = del.getAttribute('data-del');
+      state.groups = state.groups.filter(function (g) { return g.id !== id; });
+      renderBags();
+      markStale();
+    });
+
+    $('btnSample').addEventListener('click', function () {
+      loadSample();
+      run();
+      var n = state.groups.reduce(function (s, g) { return s + g.qty; }, 0);
+      toast('已载入示例：' + n + ' 件行李');
+    });
+
+    $('btnClear').addEventListener('click', function () {
+      state.groups = [];
+      state.result = null;
+      state.selected = null;
+      renderBags();
+      renderer.setData(state.container, []);
+      $('vpEmpty').classList.remove('hidden');
+      $('metrics').innerHTML = '';
+      $('tableWrap').innerHTML = '';
+      $('legend').innerHTML = '';
+      $('verifyBadge').textContent = '';
+      $('seqSlider').max = 0; $('seqSlider').value = 0;
+      $('seqLabel').textContent = '0 / 0';
+      $('progressBar').style.width = '0%';
+      $('progressText').textContent = '就绪';
+      toast('已清空');
+    });
+
+    $('btnRun').addEventListener('click', run);
+
+    $('trials').addEventListener('input', function () {
+      $('trialsVal').textContent = this.value;
+    });
+    $('support').addEventListener('input', function () {
+      $('supportVal').textContent = this.value + '%';
+    });
+    $('btnDice').addEventListener('click', function () {
+      $('seed').value = Math.floor(Math.random() * 999999);
+      markStale();
+    });
+
+    $('colorMode').addEventListener('change', function () {
+      renderer.colorMode = this.value;
+      if (state.result) renderLegend(state.result);
+      renderer.invalidate();
+    });
+    $('ghost').addEventListener('change', function () {
+      renderer.showGhost = this.checked;
+      renderer.invalidate();
+    });
+
+    document.querySelectorAll('.seg .chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.seg .chip').forEach(function (b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        renderer.viewPreset(this.getAttribute('data-view'));
+      });
+    });
+
+    $('seqSlider').addEventListener('input', function () {
+      setVisible(+this.value);
+    });
+    $('btnPlay').addEventListener('click', togglePlay);
+
+    $('tableWrap').addEventListener('click', function (e) {
+      var tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      var id = tr.getAttribute('data-id');
+      selectItem(state.selected === id ? null : id);
+    });
+
+    document.querySelectorAll('.tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        document.querySelectorAll('.tab').forEach(function (t) { t.classList.remove('active'); });
+        this.classList.add('active');
+        state.tab = this.getAttribute('data-tab');
+        if (state.result) renderTable(state.result);
+      });
+    });
+
+    $('btnJson').addEventListener('click', exportJson);
+    $('btnCsv').addEventListener('click', exportCsv);
+    $('btnExport').addEventListener('click', exportJson);
+
+    $('btnImport').addEventListener('click', function () { $('fileInput').click(); });
+    $('fileInput').addEventListener('change', function () {
+      if (this.files && this.files[0]) importJson(this.files[0]);
+      this.value = '';
+    });
+
+    $('btnHelp').addEventListener('click', function () {
+      $('helpBody').innerHTML = helpHtml();
+      $('helpModal').classList.add('open');
+    });
+    $('btnCloseHelp').addEventListener('click', function () {
+      $('helpModal').classList.remove('open');
+    });
+    $('helpModal').addEventListener('click', function (e) {
+      if (e.target === this) this.classList.remove('open');
+    });
+
+    document.addEventListener('keydown', function (e) {
+      var tag = (document.activeElement && document.activeElement.tagName) || '';
+      if (/INPUT|SELECT|TEXTAREA/.test(tag)) return;
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      else if (e.key === 'r' || e.key === 'R') renderer.resetView();
+      else if (e.key === 'ArrowRight') { e.preventDefault(); setVisible(+$('seqSlider').value + 1); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); setVisible(+$('seqSlider').value - 1); }
+      else if (e.key === 'Escape') $('helpModal').classList.remove('open');
+    });
+  }
+
+  /* ============================================================
+   * 初始化
+   * ============================================================ */
+  function init() {
+    var presetSel = $('preset');
+    presetSel.innerHTML = Object.keys(BP.PRESETS).map(function (k) {
+      return '<option value="' + k + '">' + BP.PRESETS[k].name + '</option>';
+    }).join('');
+    presetSel.value = 'ld3';
+
+    state.container = {};
+    applyPreset('ld3');
+
+    renderer = new window.BagRenderer($('view'));
+    renderer.onHover = function (p, pt) {
+      var tip = $('tooltip');
+      if (!p) { tip.classList.remove('show'); return; }
+      tip.innerHTML = '<b>' + esc(p.itemId) + '</b> ' + esc(p.name) +
+        '<div class="tt-sub">' + Math.round(p.dx) + '×' + Math.round(p.dy) + '×' + Math.round(p.dz) + ' mm · ' + p.weight + ' kg</div>' +
+        '<div class="tt-sub">第 ' + p.step + ' 步 · 位置 (' + Math.round(p.x) + ', ' + Math.round(p.y) + ', ' + Math.round(p.z) + ')</div>';
+      var rect = $('viewport').getBoundingClientRect();
+      if (pt) {
+        tip.style.left = (pt.x - rect.left) + 'px';
+        tip.style.top = (pt.y - rect.top) + 'px';
+      }
+      tip.classList.add('show');
+    };
+
+    var ro = new ResizeObserver(function () { renderer.resize(); });
+    ro.observe($('viewport'));
+    window.addEventListener('resize', function () { renderer.resize(); });
+
+    bind();
+    loadSample();
+    renderer.resize();
+
+    // 供外部程序（如机器人/配载系统）调用
+    window.BagApp = {
+      importPlan: importPlanData,
+      run: run,
+      state: state,
+      renderer: function () { return renderer; },
+      select: selectItem
+    };
+
+    setTimeout(function () { run(); }, 60);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
+</script>
+</body>
+</html>
